@@ -1,17 +1,10 @@
 plugins {
-    kotlin("jvm") version "2.0.20" // or latest
-    application
+    kotlin("jvm")
 }
 
-repositories {
-    mavenCentral()
-}
+group = "dev.samicpp"
+version = "1.0"
 
 dependencies {
     implementation(kotlin("stdlib"))
 }
-
-application {
-    mainClass.set("dev.samicpp.http.MainKt")
-}
-
