@@ -143,7 +143,7 @@ class Http1Socket(private val conn:Socket):HttpSocket{
                 buff[i+3]==10.toByte()
             ) {
                 val head=buff.copyOfRange(0,i)
-                val body=buff.copyOfRange(i,buff.size)
+                val body=buff.copyOfRange(i+3,buff.size)
                 return head to body
             }
         }
