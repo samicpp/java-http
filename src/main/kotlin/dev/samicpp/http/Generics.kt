@@ -11,8 +11,31 @@ interface Socket{
 }
 
 interface HttpClient{
-    val headers: Map<String,String>;
+    val headers: Map<String,List<String>>;
     val method: String;
     val version: String;
     val path: String;
+    val body: ByteArray;
+}
+
+interface HttpSocket{
+    val client: HttpClient;
+
+    fun addHeader(name:String,value:String);
+    fun setHeader(name:String,value:String);
+    fun sendHead();
+    
+    fun close();
+    fun close(buffer:ByteArray);
+    fun close(message:String);
+
+    fun write(buff:ByteArray);
+    fun write(text:String);
+
+    fun read_client():HttpClient;
+}
+
+enum class Compression{
+    None,
+    Gzip
 }
