@@ -163,7 +163,7 @@ class Http1Socket(private val conn:Socket):HttpSocket{
         }
         return tot.toByteArray()
     }
-    override fun read_client():HttpClient{
+    override fun readClient():HttpClient{
         val buff=read_all()
         val (bhead,body)=splitHead(buff)
         val head=bhead.decodeToString()

@@ -36,7 +36,7 @@ interface HttpSocket{
     fun write(buff:ByteArray);
     fun write(text:String);
 
-    fun read_client():HttpClient;
+    fun readClient():HttpClient;
 }
 
 enum class Compression{
