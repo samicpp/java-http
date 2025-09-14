@@ -134,8 +134,8 @@ class Http1Socket(private val conn:Socket):HttpSocket{
 
     // rx
     private fun splitHead(buff:ByteArray):Pair<ByteArray,ByteArray>{
-        for(i in 0..<(buff.size-4)){
-            // println("${buff[i+0]}==13.toByte()&&${buff[i+1]}==10.toByte()&&${buff[i+3]}==13.toByte()&&${buff[i+4]}==10.toByte()")
+        for(i in 0..<(buff.size-3)){
+            // println("${buff[i+0]}${buff[i+0]==13.toByte()}  ${buff[i+1]}${buff[i+1]==10.toByte()}  ${buff[i+2]}${buff[i+2]==13.toByte()}  ${buff[i+3]}${buff[i+3]==10.toByte()}")
             if(
                 buff[i+0]==13.toByte()&&
                 buff[i+1]==10.toByte()&&
@@ -143,7 +143,11 @@ class Http1Socket(private val conn:Socket):HttpSocket{
                 buff[i+3]==10.toByte()
             ) {
                 val head=buff.copyOfRange(0,i)
-                val body=buff.copyOfRange(i+3,buff.size)
+                val body=if(buff.size>i+3){
+                    buff.copyOfRange(i+4,buff.size)
+                } else {
+                    ByteArray(0)
+                }
                 return head to body
             }
         }
@@ -164,10 +168,11 @@ class Http1Socket(private val conn:Socket):HttpSocket{
         val (bhead,body)=splitHead(buff)
         val head=bhead.decodeToString()
         
-        // println("buff[${buff.size}] = \"${buff.decodeToString()}\"")
-        // print("buff = [ ")
-        // for(i in buff)print("$i ")
-        // print("]")
+        println("buff[${buff.size}] = \"${buff.decodeToString()}\"")
+        print("buff = [ ")
+        for(i in buff)print("$i ")
+        println("]")
+        println("bhead[${bhead.size}]\nbody[${body.size}]")
 
         val lines=head.split("\r\n")
         val mpv=lines[0].split(" ")
