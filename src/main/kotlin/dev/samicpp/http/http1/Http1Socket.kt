@@ -168,11 +168,11 @@ class Http1Socket(private val conn:Socket):HttpSocket{
         val (bhead,body)=splitHead(buff)
         val head=bhead.decodeToString()
         
-        println("buff[${buff.size}] = \"${buff.decodeToString()}\"")
-        print("buff = [ ")
-        for(i in buff)print("$i ")
-        println("]")
-        println("bhead[${bhead.size}]\nbody[${body.size}]")
+        // println("buff[${buff.size}] = \"${buff.decodeToString()}\"")
+        // print("buff = [ ")
+        // for(i in buff)print("$i ")
+        // println("]")
+        // println("bhead[${bhead.size}]\nbody[${body.size}]")
 
         val lines=head.split("\r\n")
         val mpv=lines[0].split(" ")
