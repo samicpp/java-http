@@ -21,6 +21,10 @@ interface HttpClient{
 interface HttpSocket{
     val client: HttpClient;
 
+    var status: Int;
+    var statusMessage: String;
+    var compression: Compression;
+
     fun addHeader(name:String,value:String);
     fun setHeader(name:String,value:String);
     fun sendHead();

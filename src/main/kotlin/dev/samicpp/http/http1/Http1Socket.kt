@@ -33,9 +33,9 @@ class Http1Socket(private val conn:Socket):HttpSocket{
     override val client: HttpClient get()=_client
 
     // tx
-    var status: Int = 200 // unsafe to use UShort
-    var statusMessage: String = "OK"
-    var compression:Compression=Compression.None
+    override var status: Int = 200 // unsafe to use UShort
+    override var statusMessage: String = "OK"
+    override var compression:Compression=Compression.None
     
     override fun addHeader(name:String,value:String){
         if(name.startsWith(":"))return
