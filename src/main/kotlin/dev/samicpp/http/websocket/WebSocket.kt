@@ -5,6 +5,9 @@ import dev.samicpp.http.WebSocketFrame
 
 import java.io.ByteArrayOutputStream
 
+
+const val MAGIC:String="258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+
 class WebSocket(private val conn:Socket){
     private fun read_all():ByteArray{
         var tot=ByteArrayOutputStream()
@@ -16,22 +19,24 @@ class WebSocket(private val conn:Socket){
         }
         return tot.toByteArray()
     }
-    fun incoming(){
+    fun incoming():List<WebSocketFrame>{
         val buff=read_all()
+        if(buff.size==0)return listOf()
         val list=mutableListOf<WebSocketFrame>(WebSocketFrame(buff))
         var last=list[0]
         while(last.remain.size!=0){
             last=WebSocketFrame(last.remain)
             list.add(last)
         }
+        return list
     }
     private fun createFrame(fin:Boolean,opcode:Int,payload:ByteArray):ByteArray{
         val buff=mutableListOf(
             ((if(fin)0x80 else 0x0)or(opcode and 0xf)).toByte()
         )
         if(payload.size<126) {
-            buff.add(payload.size.toByte())
-        } else if(payload.size<=65536) {
+            buff.add((payload.size and 0x7f).toByte())
+        } else if(payload.size<65536) { // 0xffff
             buff.add(126)
             buff.add((payload.size shr 8).toByte())
             buff.add((payload.size and 0xff).toByte())
@@ -46,6 +51,8 @@ class WebSocket(private val conn:Socket){
             buff.add((payload.size shr 8).toByte())
             buff.add(payload.size.toByte())
         }
+        buff.addAll(payload.toList())
+
         return buff.toByteArray()
     }
 
@@ -63,9 +70,18 @@ class WebSocket(private val conn:Socket){
     fun sendPong(data:String){conn.write(createFrame(true, 10, data.encodeToByteArray()))}
     
     fun sendClose(status:Int,reason:ByteArray){
-        val buff=mutableListOf((status shr 8).toByte(), status.toByte())
-        buff.addAll(reason.toList())
-        conn.write(createFrame(true, 10, buff.toByteArray()))
+        val buff=ByteArrayOutputStream().apply {
+            write(status shr 8)
+            write(status and 0xFF)
+            write(reason)
+        }
+
+        conn.write(createFrame(true, 8, buff.toByteArray()))
     }
     fun sendClose(status:Int,reason:String){sendClose(status, reason.encodeToByteArray())}
+
+    fun close(){
+        conn.flush()
+        conn.close()
+    }
 }

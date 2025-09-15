@@ -18,6 +18,8 @@ class TcpSocket(private val tcp: Socket): IfaceSocket{
         return output.write(buffer)
     }
     override fun close(){
+        input.close()
+        output.close()
         return tcp.close()
     }
     override fun flush(){

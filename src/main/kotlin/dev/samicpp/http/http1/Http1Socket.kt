@@ -7,6 +7,8 @@ import kotlin.byteArrayOf
 import java.io.ByteArrayOutputStream
 import java.util.zip.GZIPOutputStream
 import java.util.zip.GZIPInputStream
+import java.security.MessageDigest
+import java.util.Base64
 
 // same namespace imports unnecessary 
 import dev.samicpp.http.Socket
@@ -195,7 +197,23 @@ class Http1Socket(private val conn:Socket):HttpSocket{
     }
 
 
-    fun websocket(){}
+    fun websocket():WebSocket{
+        val key = client.headers["sec-websocket-key"]?.get(0)
+        if(key is String){
+            val sha1=MessageDigest.getInstance("sha-1")
+            val hash=sha1.digest((key+MAGIC).encodeToByteArray())
+            val base=Base64.getEncoder().encodeToString(hash)
+            
+            val acce="HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: $base\r\n\r\n"
+            conn.write(acce.encodeToByteArray())
+            closed=true
+            head_closed=true
+            return WebSocket(conn)
+        } else {
+            throw Error("no websocket key")
+        }
+
+    }
 }
 
 class Http1Client():HttpClient{
