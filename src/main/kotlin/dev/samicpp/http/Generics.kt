@@ -27,6 +27,7 @@ interface HttpSocket{
 
     fun addHeader(name:String,value:String);
     fun setHeader(name:String,value:String);
+    fun delHeader(name:String):List<String>;
     fun sendHead();
     
     fun close();
@@ -37,6 +38,8 @@ interface HttpSocket{
     fun write(text:String);
 
     fun readClient():HttpClient;
+    
+    fun websocket():WebSocket;
 }
 
 enum class Compression{

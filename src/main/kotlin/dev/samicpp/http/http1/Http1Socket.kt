@@ -40,6 +40,7 @@ class Http1Socket(private val conn:Socket):HttpSocket{
     override var compression:Compression=Compression.None
     
     override fun addHeader(name:String,value:String){
+        if(head_closed)return
         if(name.startsWith(":"))return
         when(name.lowercase()){
             "connection","content-length","transfer-encoding","content-encoding",
@@ -54,6 +55,7 @@ class Http1Socket(private val conn:Socket):HttpSocket{
         }
     }
     override fun setHeader(name:String,value:String){
+        if(head_closed)return
         if(name.startsWith(":"))return
         when(name.lowercase()){
             "connection","content-length","transfer-encoding","content-encoding",
@@ -61,6 +63,11 @@ class Http1Socket(private val conn:Socket):HttpSocket{
         }
 
         headers[name]=mutableListOf(value)
+    }
+    override fun delHeader(name:String):List<String>{
+        if(head_closed)return listOf()
+        if(name in headers)return headers.remove(name)!!
+        else return listOf()
     }
 
     override fun sendHead(){
@@ -197,7 +204,7 @@ class Http1Socket(private val conn:Socket):HttpSocket{
     }
 
 
-    fun websocket():WebSocket{
+    override fun websocket():WebSocket{
         val key = client.headers["sec-websocket-key"]?.get(0)
         if(key is String){
             val sha1=MessageDigest.getInstance("sha-1")
