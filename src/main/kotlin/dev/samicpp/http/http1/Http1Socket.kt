@@ -193,6 +193,9 @@ class Http1Socket(private val conn:Socket):HttpSocket{
 
         return _client
     }
+
+
+    fun websocket(){}
 }
 
 class Http1Client():HttpClient{
