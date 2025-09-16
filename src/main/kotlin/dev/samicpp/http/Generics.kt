@@ -42,6 +42,8 @@ interface HttpSocket{
     fun available():Boolean;
     
     fun websocket():WebSocket;
+
+    fun disconnect();
 }
 
 enum class Compression{

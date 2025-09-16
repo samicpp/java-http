@@ -105,6 +105,9 @@ class Http1Socket(private val conn:Socket):HttpSocket{
             sendHead()
             conn.write(data)
             closed=true
+        } else if (head_closed&&!closed){
+            write_chunk(buffer)
+            conn.write(byteArrayOf(48,13,10,13,10))
         }
     }
     override fun close(message:String){
@@ -222,7 +225,10 @@ class Http1Socket(private val conn:Socket):HttpSocket{
         } else {
             throw Error("no websocket key")
         }
+    }
 
+    override fun disconnect(){
+        conn.close()
     }
 }
 
