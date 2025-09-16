@@ -7,6 +7,7 @@ interface Socket{
     fun write(buffer: ByteArray);
     fun close();
     fun flush();
+    fun available():Int;
     val remoteAddress: SocketAddress;
 }
 
@@ -38,6 +39,7 @@ interface HttpSocket{
     fun write(text:String);
 
     fun readClient():HttpClient;
+    fun available():Boolean;
     
     fun websocket():WebSocket;
 }

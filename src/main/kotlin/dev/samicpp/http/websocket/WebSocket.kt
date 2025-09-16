@@ -30,6 +30,9 @@ class WebSocket(private val conn:Socket){
         }
         return list
     }
+    fun available():Boolean{
+        return conn.available()!=0
+    }
     private fun createFrame(fin:Boolean,opcode:Int,payload:ByteArray):ByteArray{
         val buff=mutableListOf(
             ((if(fin)0x80 else 0x0)or(opcode and 0xf)).toByte()

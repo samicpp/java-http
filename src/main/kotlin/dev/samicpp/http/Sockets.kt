@@ -25,5 +25,8 @@ class TcpSocket(private val tcp: Socket): IfaceSocket{
     override fun flush(){
         return output.flush()
     }
+    override fun available():Int{
+        return input.available()
+    }
     override val remoteAddress=tcp.remoteSocketAddress
 }

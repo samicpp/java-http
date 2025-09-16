@@ -202,6 +202,9 @@ class Http1Socket(private val conn:Socket):HttpSocket{
 
         return _client
     }
+    override fun available():Boolean{
+        return conn.available()!=0
+    }
 
 
     override fun websocket():WebSocket{
