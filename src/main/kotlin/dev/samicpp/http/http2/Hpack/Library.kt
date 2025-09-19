@@ -9,7 +9,7 @@ data class Header(
 // Appendix A #appendix-A
 class StaticTable{
     // needs to be offset by +1 before use
-    val entries=listOf( // 61 headers
+    private val entries=arrayOf( // 61 headers
         Header(":authority"),
         Header(":method", "GET"),
         Header(":method", "POST"),
@@ -72,6 +72,8 @@ class StaticTable{
         Header("via"),
         Header("www-authenticate"),
     )
+
+    fun get(index:Int)=entries[index]
 }
 
 // 4 #autoid-16
