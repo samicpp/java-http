@@ -3,8 +3,8 @@ package dev.samicpp.http.hpack
 data class HuffmanCode(val code:Int, val length:Int)
 
 // Appendix B #appendix-B
-class HuffmanTable{
-    private val table=arrayOf(
+fun HuffmanTable():Array<HuffmanCode>{
+    return arrayOf(
         HuffmanCode(0x1ff8, 13),
         HuffmanCode(0x7fffd8, 23),
         HuffmanCode(0xfffffe2, 28),
@@ -263,18 +263,147 @@ class HuffmanTable{
         HuffmanCode(0x3ffffee, 26),
         HuffmanCode(0x3fffffff, 30),
     )
-
-    fun get(index:Int)=table[index]
 }
 
-class Huffman{
-    fun decode(buff:ByteArray):ByteArray{
-        var current = 0;
-        var current_len = 0;
+sealed class HuffmanSymbol{
+    data class Symbol(val value:Byte):HuffmanSymbol()
+    object EndOfString:HuffmanSymbol()
+}
+
+sealed class HuffmanDecoderError(message: String):Exception(message){
+    object PaddingTooLarge:HuffmanDecoderError("Padding is larger than 7 bits")
+    object InvalidPadding:HuffmanDecoderError("Padding does not match EOS most-significant bits")
+    object EOSInString:HuffmanDecoderError("EOS symbol found inside the stream")
+}
+
+class HuffmanDecoder(private val table:Array<HuffmanCode>){
+    private val lookup:MutableMap<Int,MutableMap<Int,HuffmanSymbol>> =mutableMapOf()
+    private val eosCode:Pair<Int,Int>
+
+    private val codeBySymbol:IntArray
+    private val lenBySymbol:IntArray
+
+    init{
+        if(table.size!=257){
+            throw IllegalArgumentException("Table must define 257 symbols (0-255 + EOS)")
+        }
+
+        var eos:Pair<Int,Int>?=null
+
+        for ((symbol,code) in table.withIndex()) {
+            val sub=lookup.getOrPut(code.length){ mutableMapOf() }
+            if(symbol==256) {
+                eos=code.code to code.length
+                sub[code.code]=HuffmanSymbol.EndOfString
+            } else {
+                sub[code.code]=HuffmanSymbol.Symbol(symbol.toByte())
+            }
+        }
+
+        eosCode=eos?:throw IllegalStateException("EOS symbol missing in table")
+
+        codeBySymbol=IntArray(257)
+        lenBySymbol=IntArray(257)
+        for((i,c) in table.withIndex()){
+            codeBySymbol[i]=c.code
+            lenBySymbol[i]=c.length
+        }
+    }
+
+    fun decode(buf:ByteArray):ByteArray{
+        var current=0
+        var currentLen=0
         val result=mutableListOf<Byte>()
 
-        for(b in buff){}
-        
+        for(bit in BitIterator(buf)){
+            current=(current shl 1) or if(bit) 1 else 0
+            currentLen++
+
+            val subtable=lookup[currentLen]
+            val symbol=subtable?.get(current)
+            if (symbol!=null) {
+                when(symbol) {
+                    is HuffmanSymbol.Symbol->result.add(symbol.value);
+                    is HuffmanSymbol.EndOfString->throw HuffmanDecoderError.EOSInString;
+                }
+                current=0
+                currentLen=0
+            }
+        }
+
+        if(currentLen>7) {
+            throw HuffmanDecoderError.PaddingTooLarge
+        }; if (currentLen>0) {
+            val rightAlignCurrent=current shl (32-currentLen)
+            val rightAlignEos=eosCode.first shl (32-eosCode.second)
+            val mask=if(currentLen==0) 0 else ((1 shl currentLen)-1) shl (32-currentLen)
+            val eosMask=rightAlignEos and mask
+            if (eosMask!=rightAlignCurrent) {
+                throw HuffmanDecoderError.InvalidPadding
+            }
+        }
+
         return result.toByteArray()
+    }
+
+    fun encode(input:ByteArray):ByteArray{
+        val out=mutableListOf<Byte>()
+
+        var acc:Long=0L
+        var accLen:Int=0
+
+        for(b in input){
+            val sym=b.toInt() and 0xff
+            val code=codeBySymbol[sym].toLong() and 0xffffffffL
+            val len=lenBySymbol[sym]
+
+            acc=(acc shl len) or code
+            accLen+=len
+
+            while(accLen>=8){
+                val shift=accLen-8
+                val outByte=((acc shr shift) and 0xFF).toInt()
+                out.add(outByte.toByte())
+                accLen-=8
+                
+                if(accLen==0) {
+                    acc=0L
+                } else {
+                    val mask=(1L shl accLen)-1L
+                    acc=acc and mask
+                }
+            }
+        }
+
+        if(accLen>0){
+            val padBits=8-accLen
+            val padMask=(1L shl padBits)-1L
+            val finalByte=(((acc shl padBits) or padMask) and 0xFF).toInt()
+            out.add(finalByte.toByte())
+        }
+
+        return out.toByteArray()
+    }
+}
+
+class BitIterator(private val buf:ByteArray):Iterator<Boolean>{
+    private var byteIndex=0
+    private var bitPos=7
+
+    override fun hasNext():Boolean{
+        return byteIndex<buf.size
+    }
+
+    override fun next():Boolean{
+        if(!hasNext())throw NoSuchElementException()
+        val b=buf[byteIndex].toInt() and 0xff
+        val bit=((b shr bitPos) and 1)==1
+        if(bitPos==0) {
+            bitPos=7
+            byteIndex++
+        } else {
+            bitPos--
+        }
+        return bit
     }
 }

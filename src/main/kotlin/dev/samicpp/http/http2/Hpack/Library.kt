@@ -74,12 +74,15 @@ class StaticTable{
     )
 
     fun get(index:Int)=entries[index]
+    fun size()=entries.size
 }
 
 // 4 #autoid-16
 class DynamicTable(var maxSize:Int=4096){
     private val entries=ArrayDeque<Header>(0)
     private var curSize:Int=0
+
+    fun size()=curSize
 
     fun add(field: Header){
         entries.addFirst(field)
