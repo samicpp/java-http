@@ -49,7 +49,7 @@ class Encoder(val size:Int=4096){
         }
         return null
     }
-
+ 
     private fun findNameIndex(name:String,staticCount:Int):Int?{
         for (i in 1..staticCount) {
             val h=static.get(i)
