@@ -38,12 +38,12 @@ class Encoder(val size:Int=4096){
     private fun findExactIndex(name:String,value:String,staticCount:Int):Int?{
         for(i in 1..staticCount){
             val h=static.get(i)
-            if(h.name==name&&(h.value?:"")==value) return i
+            if(h?.name==name&&(h.value?:"")==value) return i
         }
         val dSize=dynamic.size()
         for(i in 1..dSize){
             val h=dynamic.get(i)
-            if(h.name==name&&h.value==value){
+            if(h?.name==name&&h.value==value){
                 return staticCount+i
             }
         }
@@ -53,12 +53,12 @@ class Encoder(val size:Int=4096){
     private fun findNameIndex(name:String,staticCount:Int):Int?{
         for (i in 1..staticCount) {
             val h=static.get(i)
-            if(h.name==name) return i
+            if(h?.name==name) return i
         }
         val dSize=dynamic.size()
         for (i in 1..dSize) {
             val h=dynamic.get(i)
-            if(h.name==name) return staticCount+i
+            if(h?.name==name) return staticCount+i
         }
         return null
     }

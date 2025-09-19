@@ -73,7 +73,13 @@ class StaticTable{
         Header("www-authenticate"),
     )
 
-    fun get(index:Int)=entries[index]
+    fun get(index:Int):Header?{
+        if(index<1||index>entries.size) {
+            return null
+        }
+        return entries[index-1]
+    }
+
     fun size()=entries.size
 }
 
@@ -89,8 +95,11 @@ class DynamicTable(var maxSize:Int=4096){
         curSize+=field.name.length+(field.value?.length?:0)+32
         evict()
     }
-    fun get(index:Int):Header{
-        return entries[index]
+    fun get(index:Int):Header?{
+        if(index<1||index>entries.size) {
+            return null
+        }
+        return entries[index-1]
     }
 
     private fun evict(){

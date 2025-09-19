@@ -83,7 +83,7 @@ class Decoder(val size:Int=4096){
         posRef[0]=pos
         return value
     }
-
+ 
     private fun readString(data: ByteArray, posRef: IntArray): String {
         val pos=posRef[0]
         if (pos>=data.size) throw IllegalStateException("Truncated string length at pos $pos")
@@ -105,10 +105,12 @@ class Decoder(val size:Int=4096){
     private fun getHeaderFromIndex(index:Int):Header{
         val staticCount=static.size()
         return if(index in 1..staticCount) {
-            static.get(index)
-        } else {
+            static.get(index)!!
+        } else if(index in staticCount..(staticCount+dynamic.size())) {
             val dynIndex=index-staticCount
-            dynamic.get(dynIndex)
+            dynamic.get(dynIndex)!!
+        } else {
+            throw IndexOutOfBoundsException("Index $index out of Dynamic- and Statictable bounds")
         }
     }
 
