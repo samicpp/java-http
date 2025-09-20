@@ -31,7 +31,7 @@ class WebSocket(private val conn:Socket){
         return list
     }
     fun available():Boolean{
-        return conn.available()!=0
+        return conn.available()>0
     }
     private fun createFrame(fin:Boolean,opcode:Int,payload:ByteArray):ByteArray{
         val buff=mutableListOf(
