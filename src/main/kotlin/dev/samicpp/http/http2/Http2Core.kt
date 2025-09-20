@@ -67,6 +67,15 @@ fun parseHttp2Frame(buff: ByteArray):Pair<Http2Frame,ByteArray>{
 
     val (type,stringType)=when(opcode){
         0->Http2FrameType.Data to "Data"
+        1->Http2FrameType.Headers to "Headers"
+        2->Http2FrameType.Priority to "Priority"
+        3->Http2FrameType.RstStream to "RstStream"
+        4->Http2FrameType.Settings to "Settings"
+        5->Http2FrameType.PushPromise to "PushPromise"
+        6->Http2FrameType.Ping to "Ping"
+        7->Http2FrameType.Goaway to "Goaway"
+        8->Http2FrameType.WindowUpdate to "WindowUpdate"
+        9->Http2FrameType.Continuation to "Continuation"
         else->Http2FrameType.Unknown to "Unkown"
     }
 
