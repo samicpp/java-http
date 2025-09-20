@@ -46,7 +46,9 @@ fun parseHttp2Frame(buff: ByteArray):Pair<Http2Frame,ByteArray>{
         buff[9].toInt() and 0xff
     } else { 0 }
 
-    val frameLength=9+start+length+padLength
+    val frameLength=start+length+padLength
+
+    // println("length = $length")
 
     val priority=
     if((flags and 0x20)!=0){
@@ -118,7 +120,7 @@ fun parseHttp2Settings(buff:ByteArray):Http2Settings{
     var initial_window_size:Int?=null
     var max_frame_size:Int?=null
     var max_header_list_size:Int?=null
-    for(i in 0 until buff.size step 6){val it=buff.copyOfRange(i,6) // more efficient?
+    for(i in 0 until buff.size step 6){ val it=buff.copyOfRange(i,i+6) // more efficient?
     // buff.asList().chunked(6).forEach{
         val name=((it[0].toInt() and 0xff) shl 8) or (it[1].toInt() and 0xff)
         val value=((it[2].toInt() and 0xff) shl 24) or ((it[3].toInt() and 0xff) shl 16) or 

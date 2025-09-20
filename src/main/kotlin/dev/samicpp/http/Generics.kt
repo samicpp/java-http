@@ -50,3 +50,7 @@ enum class Compression{
     None,
     Gzip
 }
+
+sealed class HttpError(message:String?=null):Throwable(message){
+    class ConnectionClosed(msg:String?=null):HttpError(msg)
+}

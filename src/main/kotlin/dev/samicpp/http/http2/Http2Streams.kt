@@ -1,5 +1,6 @@
 package dev.samicpp.http
 
+
 class Http2Stream(val streamID:Int,val conn:Http2Connection):HttpSocket{
     override val client: HttpClient=Http1Client()
 
