@@ -11,11 +11,11 @@ data class Http2Frame(
 )
 
 class Http2Settings(settingsBuffer:ByteArray){
-    val header_table_size:Int? = 4,096
+    val header_table_size:Int? = 4_096
     val enable_push:Int? = 1
     val max_concurrent_streams:Int? = -1
-    val initial_window_size:Int? = 65,535
-    val max_frame_size:Int? = 16,384
+    val initial_window_size:Int? = 65_535
+    val max_frame_size:Int? = 16_384
     val max_header_list_size:Int? = -1
 
     init { 
