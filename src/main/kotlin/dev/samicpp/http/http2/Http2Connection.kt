@@ -17,6 +17,9 @@ class Http2Connection(private val conn:Socket){
     private val hpackEncoder=Encoder(4096)
     private val hpackDecoder=Decoder(4096)
 
+    fun hpackEncode(headers: List<Pair<String, String>>)=hpackEncoder.encode(headers)
+    fun hpackDecode(block:ByteArray)=hpackDecoder.decode(block)
+
     private val pre="PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
     init{
         val preBuff=ByteArray(24)
@@ -66,16 +69,30 @@ class Http2Connection(private val conn:Socket){
     }
 
     fun sendData(streamID:Int,payload:ByteArray,last:Boolean){
-        send_frame(true, streamID, 1, if(last)0x1 else 0, payload, ByteArray(0))
+        // TODO: return remaining when too large
+        send_frame(true, streamID, 0, if(last) 1 else 0, payload, ByteArray(0))
     }
+    fun sendHeaders(streamID:Int,headers:List<Pair<String,String>>,endStream:Boolean=false){
+        // TODO: split up with continuation frames when too large
+        val payload=hpackEncode(headers)
+        send_frame(true, streamID, 1, if(endStream) 5 else 4, payload, ByteArray(0))
+    }
+    fun sendSettings(streamID:Int,settings:Http2Settings){
+        val payload=settings.toBuffer()
+        send_frame(true, streamID, 4, 0, payload, ByteArray(0))
+    }
+    fun sendSettingsAck(streamID:Int) {
+        send_frame(true, streamID, 4, 1, ByteArray(0), ByteArray(0))
+    }
+
     // should ABSOLUTELY not be used under normal circumstances
     fun send_frame(lock:Boolean,streamID:Int,opcode:Int,flags:Int,payload:ByteArray,padding:ByteArray){
         val buff=ByteArrayOutputStream()
         if(lock)writeLock.lock()
 
         buff.writeBytes(byteArrayOf(
-            (payload.size shl 16).toByte(),
-            (payload.size shl 8).toByte(),
+            (payload.size shr 16).toByte(),
+            (payload.size shr 8).toByte(),
             (payload.size).toByte(),
         ))
 
@@ -83,9 +100,9 @@ class Http2Connection(private val conn:Socket){
         buff.write(flags)
 
         buff.writeBytes(byteArrayOf( // write(ByteArray) also works
-            (streamID shl 24).toByte(),
-            (streamID shl 16).toByte(),
-            (streamID shl 8).toByte(),
+            (streamID shr 24).toByte(),
+            (streamID shr 16).toByte(),
+            (streamID shr 8).toByte(),
             (streamID).toByte(),
         ))
 

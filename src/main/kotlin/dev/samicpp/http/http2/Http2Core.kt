@@ -2,6 +2,7 @@ package dev.samicpp.http
 // https://datatracker.ietf.org/doc/html/rfc7540
 
 import kotlin.byteArrayOf
+import java.io.ByteArrayOutputStream
 
 
 data class Http2Frame(
@@ -24,13 +25,40 @@ data class Http2Frame(
 }
 
 data class Http2Settings(
-    val header_table_size:Int?,       //  0x1
-    val enable_push:Int?,             //  0x2
-    val max_concurrent_streams:Int?,  //  0x3
-    val initial_window_size:Int?,     //  0x4
-    val max_frame_size:Int?,          //  0x5
-    val max_header_list_size:Int?,    //  0x6
-)
+    val header_table_size:Int?=null,       //  0x1
+    val enable_push:Int?=null,             //  0x2
+    val max_concurrent_streams:Int?=null,  //  0x3
+    val initial_window_size:Int?=null,     //  0x4
+    val max_frame_size:Int?=null,          //  0x5
+    val max_header_list_size:Int?=null,    //  0x6
+){
+    fun toBuffer():ByteArray{
+        val buff=ByteArrayOutputStream()
+        val sett=listOf(
+            header_table_size,
+            enable_push,
+            max_concurrent_streams,
+            initial_window_size,
+            max_frame_size,
+            max_header_list_size,
+        )
+        for(i in 0..5){
+            val n=i+1
+            val v=sett[i]
+            if(v!=null){
+                buff.write(0)
+                buff.write(n)
+                buff.writeBytes(byteArrayOf(
+                    (v shr 24).toByte(),
+                    (v shr 16).toByte(),
+                    (v shr 8).toByte(),
+                    v.toByte()
+                ))
+            }
+        }
+        return buff.toByteArray()
+    }
+}
 
 fun parseHttp2Frame(buff: ByteArray):Pair<Http2Frame,ByteArray>{
     var start=9
