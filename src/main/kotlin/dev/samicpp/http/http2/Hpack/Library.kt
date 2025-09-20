@@ -4,7 +4,9 @@ package dev.samicpp.http.hpack
 data class Header(
     val name:String,
     val value:String?=null
-)
+){
+    fun toPair()=Pair(name,value?:"")
+}
 
 // Appendix A #appendix-A
 class StaticTable{

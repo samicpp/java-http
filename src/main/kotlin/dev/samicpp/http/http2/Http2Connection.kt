@@ -10,17 +10,36 @@ sealed class Http2Error(msg:String?=null):HttpError(msg){
     class InvalidPreface(msg:String?=null):Http2Error(msg)
 }
 
-class Http2Connection(private val conn:Socket){
+internal data class StreamData(
+    var end: Boolean=false,
+    var closed: Boolean=false,
+    var windowSize: Int=65535,
+    var headers:List<Pair<String, String>> =listOf(),
+    var headBuff:ByteArrayOutputStream=ByteArrayOutputStream(),
+    var body:ByteArrayOutputStream=ByteArrayOutputStream(),
+)
+
+class Http2Connection(
+    private val conn:Socket,
+    var settings:Http2Settings=Http2Settings(4096,1,null,65535,16384,null),
+    ){
     private val readLock=ReentrantLock()
     private val writeLock=ReentrantLock()
+    private val streamLock=ReentrantLock()
 
     private val hpackEncoder=Encoder(4096)
     private val hpackDecoder=Decoder(4096)
 
-    fun hpackEncode(headers: List<Pair<String, String>>)=hpackEncoder.encode(headers)
-    fun hpackDecode(block:ByteArray)=hpackDecoder.decode(block)
+    internal val streamData:MutableMap<Int,StreamData> =mutableMapOf()
+    internal var windowSize:Int=settings.initial_window_size?:65535
 
-    private val pre="PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
+    private var maxStreamID:Int=0
+    private var goaway:Boolean=false
+
+    fun hpackEncode(headers: List<Pair<String, String>>)=hpackEncoder.encode(headers)
+    fun hpackDecode(block:ByteArray)=hpackDecoder.decode(block).map{it.toPair()}
+
+    val pre="PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
     init{
         val preBuff=ByteArray(24)
         val read=conn.read(preBuff)
@@ -28,8 +47,9 @@ class Http2Connection(private val conn:Socket){
         if(read<0)throw HttpError.ConnectionClosed()
         if(preface!=pre)throw Http2Error.InvalidPreface("Preface was $read")
     }
-    private fun read_all():ByteArray{
-        readLock.lock()
+    private fun read_all(lock:Boolean=true):ByteArray{
+        if(!available())return ByteArray(0)
+        if(lock)readLock.lock()
         var tot=ByteArrayOutputStream()
         var buff=ByteArray(4096)
         while(true){
@@ -37,8 +57,39 @@ class Http2Connection(private val conn:Socket){
             if(read>0)tot.write(buff,0,read)
             if(read<buff.size)break
         }
-        readLock.unlock()
+        if(lock)readLock.unlock()
         return tot.toByteArray()
+    }
+    private fun read_one(lock:Boolean=true):Http2Frame{
+        val buff=ByteArrayOutputStream()
+        if(lock)readLock.lock()
+        
+        var offset=9
+
+        val head=ByteArray(9)
+        conn.read(head)
+        buff.writeBytes(head)
+
+        val length=((head[0].toInt() and 0xff) shl 16) or ((head[1].toInt() and 0xff) shl 8) or (head[2].toInt() and 0xff)
+        val padLength=
+        if((head[4].toInt() and 0x8)!=0) {
+            offset+=1
+            val one=ByteArray(0)
+            conn.read(one)
+            buff.writeBytes(one)
+            one[0].toInt() and 0xff
+        }
+        else 0 
+
+        val payload=ByteArray(length)
+        val padding=ByteArray(padLength)
+        conn.read(payload)
+        conn.read(padding)
+        buff.writeBytes(payload)
+        buff.writeBytes(padding)
+
+        if(lock)readLock.unlock()
+        return parseHttp2Frame(buff.toByteArray()).first // nothing should remain
     }
     fun available():Boolean{
         return conn.available()>0
@@ -64,12 +115,82 @@ class Http2Connection(private val conn:Socket){
         return frames
     }
 
+    fun handle(frames:List<Http2Frame>):List<Int>{
+        streamLock.lock()
+        val created=mutableListOf<Int>()
+        check@
+        for(frame in frames){
+            try{
+                when(frame.type){
+                    Http2FrameType.Headers->{
+                        if(goaway)continue@check
+                        if(frame.streamID in streamData)continue@check
+                        val data=StreamData()
+                        data.headBuff.writeBytes(frame.payload)
+
+                        streamData[frame.streamID]=data
+                        created.add(frame.streamID)
+
+                        if((frame.flags and 4)!=0)data.headers=hpackDecode(data.headBuff.toByteArray())
+                        if((frame.flags and 1)!=0)data.end=true
+
+                        if(maxStreamID<frame.streamID) maxStreamID=frame.streamID // should always be true
+                    }
+                    Http2FrameType.Continuation->{
+                        if(frame.streamID !in streamData)continue@check
+                        val data=streamData[frame.streamID]!!
+                        data.headBuff.writeBytes(frame.payload)
+                        if((frame.flags and 4)!=0)data.headers=hpackDecode(data.headBuff.toByteArray())
+                        if((frame.flags and 1)!=0)data.end=true
+                    }
+                    Http2FrameType.Data->{
+                        if(frame.streamID !in streamData)continue@check
+                        val data=streamData[frame.streamID]!!
+                        data.body.writeBytes(frame.payload)
+                        if((frame.flags and 1)!=0)data.end=true
+                        sendWindowUpdate(frame.streamID, frame.length)
+                    }
+                    Http2FrameType.Settings->{
+                        if((frame.flags and 1)!=0&&frame.streamID!=0)continue@check
+                        val data=streamData[frame.streamID]!!
+                        val sett=frame.settings
+                        
+                        val newSett=Http2Settings(
+                            header_table_size       = sett.header_table_size?:settings.header_table_size,
+                            enable_push             = sett.enable_push?:settings.enable_push,
+                            max_concurrent_streams  = sett.max_concurrent_streams?:settings.max_concurrent_streams,
+                            initial_window_size     = sett.initial_window_size?:settings.initial_window_size,
+                            max_frame_size          = sett.max_frame_size?:settings.max_frame_size,
+                            max_header_list_size    = sett.max_header_list_size?:settings.max_header_list_size,
+                        )
+
+                        settings=newSett
+                    }
+                    Http2FrameType.Goaway->goaway=true
+                    Http2FrameType.RstStream->streamData[frame.streamID]!!.closed=true
+                    Http2FrameType.WindowUpdate->{
+                        val update=((frame.payload[0].toInt() and 0xff) shl 24) or ((frame.payload[1].toInt() and 0xff) shl 16) or 
+                                   ((frame.payload[2].toInt() and 0xff) shl 8) or (frame.payload[3].toInt() and 0xff)
+                        if(frame.streamID==0)windowSize+=update
+                        else streamData[frame.streamID]!!.windowSize+=update
+                    }
+
+                    else->{}
+                }
+            } catch(err: Throwable){
+                ;
+            }
+        }
+        streamLock.unlock()
+        return created
+    }
+
     fun getStream(streamID:Int):HttpSocket{
         return Http2Stream(streamID,this)
     }
 
     fun sendData(streamID:Int,payload:ByteArray,last:Boolean){
-        // TODO: return remaining when too large
+        // TODO: flow control
         send_frame(true, streamID, 0, if(last) 1 else 0, payload, ByteArray(0))
     }
     fun sendHeaders(streamID:Int,headers:List<Pair<String,String>>,endStream:Boolean=false){
@@ -77,13 +198,23 @@ class Http2Connection(private val conn:Socket){
         val payload=hpackEncode(headers)
         send_frame(true, streamID, 1, if(endStream) 5 else 4, payload, ByteArray(0))
     }
-    fun sendSettings(streamID:Int,settings:Http2Settings){
+    fun sendSettings(settings:Http2Settings){
         val payload=settings.toBuffer()
-        send_frame(true, streamID, 4, 0, payload, ByteArray(0))
+        send_frame(true, 0, 4, 0, payload, ByteArray(0))
     }
-    fun sendSettingsAck(streamID:Int) {
-        send_frame(true, streamID, 4, 1, ByteArray(0), ByteArray(0))
+    fun sendSettingsAck() {
+        send_frame(true, 0, 4, 1, ByteArray(0), ByteArray(0))
     }
+    fun sendWindowUpdate(streamID:Int,size:Int){
+        val payload=byteArrayOf(
+            (size shr 24).toByte(),
+            (size shr 16).toByte(),
+            (size shr 8).toByte(),
+            size.toByte()
+        )
+        send_frame(true, streamID, 8, 0, payload, ByteArray(0))
+    }
+    // TODO: add remaining frames
 
     // should ABSOLUTELY not be used under normal circumstances
     fun send_frame(lock:Boolean,streamID:Int,opcode:Int,flags:Int,payload:ByteArray,padding:ByteArray){
