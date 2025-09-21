@@ -14,6 +14,7 @@ import java.util.Base64
 import dev.samicpp.http.Socket
 import dev.samicpp.http.HttpClient
 import dev.samicpp.http.Compression
+import dev.samicpp.http.StreamData
 
 fun compressGzip(buff:ByteArray):ByteArray {
     val bos=ByteArrayOutputStream()
@@ -226,8 +227,30 @@ class Http1Socket(private val conn:Socket):HttpSocket{
             throw Error("no websocket key")
         }
     }
-    fun http2(){
-        // TODO: handle h2c upgrade
+    fun h2c():Http2Connection{
+        val settb64=client.headers["http2-settings"]?.get(0)
+
+        val h2=
+        if(settb64!=null){
+            val setts=Base64.getDecoder().decode(settb64)
+            val sett=parseHttp2Settings(setts)
+            conn.write("HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: h2c\r\n\r\n".encodeToByteArray())
+            Http2Connection(conn,sett)
+        } else {
+            Http2Connection(conn)
+        }
+
+        val headers=mutableListOf<Pair<String, String>>()
+        val body=ByteArrayOutputStream()
+        body.writeBytes(_client.body)
+
+        for((header,values) in this.headers){
+            for(value in values)headers.add(header to value)
+        }
+
+        h2.streamData[1]=StreamData(true,false,h2.settings.initial_window_size?:65535,headers,body=body)
+
+        return h2
     }
 
     override fun disconnect(){
