@@ -226,6 +226,9 @@ class Http1Socket(private val conn:Socket):HttpSocket{
             throw Error("no websocket key")
         }
     }
+    fun http2(){
+        // TODO: handle h2c upgrade
+    }
 
     override fun disconnect(){
         conn.close()
@@ -243,6 +246,7 @@ class Http1Client():HttpClient{
     override val method: String get()=_method
     override val version: String get()=_version
     override val path: String get()=_path
+    override val host: String get()=_headers["host"]?.get(0)?:"about:blank"
     override val body: ByteArray get()=_body
 }
 

@@ -10,7 +10,7 @@ enum class WebSocketFrameType{
     Other,
 }
 
-class WebSocketFrame(private val raw: ByteArray){
+data class WebSocketFrame(private val raw: ByteArray){
     val final:Boolean=(raw[0].toInt() and 0x80)!=0
     val rsv:Int=raw[0].toInt() and 0x70
     val opcode:Int=raw[0].toInt() and 0xf

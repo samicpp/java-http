@@ -16,6 +16,7 @@ interface HttpClient{
     val method: String;
     val version: String;
     val path: String;
+    val host: String;
     val body: ByteArray;
 }
 

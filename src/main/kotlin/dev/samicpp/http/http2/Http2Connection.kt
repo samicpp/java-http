@@ -7,7 +7,8 @@ import dev.samicpp.http.hpack.Decoder
 
 
 sealed class Http2Error(msg:String?=null):HttpError(msg){
-    class InvalidPreface(msg:String?=null):Http2Error(msg)
+    class InvalidPreface(msg:String?=null):Http2Error(msg);
+    class Unsupported(msg:String?=null):Http2Error(msg);
 }
 
 internal data class StreamData(
@@ -23,6 +24,7 @@ class Http2Connection(
     private val conn:Socket,
     var settings:Http2Settings=Http2Settings(4096,1,null,65535,16384,null),
     ){
+    private val sendLock=ReentrantLock()
     private val readLock=ReentrantLock()
     private val writeLock=ReentrantLock()
     private val streamLock=ReentrantLock()
@@ -208,6 +210,7 @@ class Http2Connection(
     }
 
     fun sendData(streamID:Int,payload:ByteArray,last:Boolean){
+        sendLock.lock()
         val stream=streamData[streamID]!!
         var remain=payload
         var min=if(windowSize>stream.windowSize)
@@ -229,8 +232,10 @@ class Http2Connection(
                 minOf(windowSize, settings.max_frame_size!!)
         }
         send_frame(true, streamID, 0, if(last) 1 else 0, remain, ByteArray(0))
+        sendLock.unlock()
     }
     fun sendHeaders(streamID:Int,headers:List<Pair<String,String>>,endStream:Boolean=false){
+        sendLock.lock()
         val payload=hpackEncode(headers)
         if(payload.size>settings.max_frame_size!!){
             send_frame(true, streamID, 1, 0, payload.copyOfRange(0, settings.max_frame_size!!), ByteArray(0))
@@ -243,6 +248,7 @@ class Http2Connection(
         } else{
             send_frame(true, streamID, 1, if(endStream) 5 else 4, payload, ByteArray(0))
         }
+        sendLock.unlock()
     }
     fun sendSettings(settings:Http2Settings){
         val payload=settings.toBuffer()
@@ -276,6 +282,7 @@ class Http2Connection(
         ))
         payload.writeBytes(message)
         send_frame(true, 0, 7, 0, payload.toByteArray(), ByteArray(0))
+        goaway=true
     }
     fun sendRstStream(streamID:Int,error:Int){
         val payload=byteArrayOf(
@@ -285,6 +292,7 @@ class Http2Connection(
             error.toByte()
         )
         send_frame(true, streamID, 3, 0, payload, ByteArray(0))
+        streamData[streamID]!!.closed=true
     }
 
     // should ABSOLUTELY not be used under normal circumstances
