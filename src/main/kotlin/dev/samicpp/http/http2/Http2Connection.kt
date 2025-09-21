@@ -311,6 +311,7 @@ class Http2Connection(
         send_frame(true, streamID, 3, 0, payload, ByteArray(0))
         streamData[streamID]!!.closed=true
     }
+    // TODO: add sendPushPromise
 
     // should ABSOLUTELY not be used under normal circumstances
     fun send_frame(lock:Boolean,streamID:Int,opcode:Int,flags:Int,payload:ByteArray,padding:ByteArray){

@@ -34,6 +34,8 @@ data class Http2Client(val head:List<Pair<String,String>>,override val body:Byte
     }
 }
 
+// TODO: make sure headers dont exceed SETTINGS_MAX_HEADER_LIST_SIZE
+
 class Http2Stream(val streamID:Int,val conn:Http2Connection):HttpSocket{
     override var client: HttpClient=Http2Client(listOf(),ByteArray(0))
 
