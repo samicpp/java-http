@@ -45,31 +45,34 @@ class Http2Stream(val streamID:Int,val conn:Http2Connection):HttpSocket{
     override var compression: Compression=Compression.None
 
     override fun addHeader(name:String,value:String){
+        val lname=name.lowercase()
         if(sentHead)return
-        if(name.startsWith(":"))return
-        when(name.lowercase()){
+        if(lname.startsWith(":"))return
+        when(lname.lowercase()){
             "connection","content-length","transfer-encoding","content-encoding",
             ->return;
         }
-        val hs=headers[name]
+        val hs=headers[lname]
         if (hs!=null){
             hs.add(value)
         } else {
-            headers[name]=mutableListOf(value)
+            headers[lname]=mutableListOf(value)
         }
     }
     override fun setHeader(name:String,value:String){
+        val lname=name.lowercase()
         if(sentHead)return
-        if(name.startsWith(":"))return
-        when(name.lowercase()){
+        if(lname.startsWith(":"))return
+        when(lname){
             "connection","content-length","transfer-encoding","content-encoding",
             ->return;
         }
-        headers[name]=mutableListOf(value)
+        headers[lname]=mutableListOf(value)
     }
     override fun delHeader(name:String):List<String>{
+        val lname=name.lowercase()
         if(sentHead)return listOf()
-        if(name in headers)return headers.remove(name)!!
+        if(lname in headers)return headers.remove(lname)!!
         else return listOf()
     }
     override fun sendHead(){

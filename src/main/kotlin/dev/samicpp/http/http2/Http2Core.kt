@@ -61,6 +61,7 @@ data class Http2Settings(
 }
 
 fun parseHttp2Frame(buff: ByteArray):Pair<Http2Frame,ByteArray>{
+    if(buff.size<9)throw Http2Error.MalformedFrame("frame was ${buff.size}")
     var start=9
     val length=((buff[0].toInt() and 0xff) shl 16) or ((buff[1].toInt() and 0xff) shl 8) or (buff[2].toInt() and 0xff)
     val opcode=buff[3].toInt() and 0xff

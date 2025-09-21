@@ -9,6 +9,7 @@ import dev.samicpp.http.hpack.Decoder
 sealed class Http2Error(msg:String?=null):HttpError(msg){
     class InvalidPreface(msg:String?=null):Http2Error(msg);
     class Unsupported(msg:String?=null):Http2Error(msg);
+    class MalformedFrame(msg:String?=null):Http2Error(msg);
 }
 
 internal data class StreamData(
@@ -76,7 +77,7 @@ class Http2Connection(
         if(lock)readLock.unlock()
         return tot.toByteArray()
     }
-    private fun read_one(lock:Boolean=true):Http2Frame{
+    fun read_one(lock:Boolean=true):Http2Frame{
         val buff=ByteArrayOutputStream()
         if(lock)readLock.lock()
         
@@ -125,7 +126,7 @@ class Http2Connection(
                 frames.add(pout.first)
                 remain=pout.second
             } catch(err:Throwable){
-                throw err
+                // throw err
             }
         } while(remain.size!=0)
         return frames
