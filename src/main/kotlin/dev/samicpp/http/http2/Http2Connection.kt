@@ -26,18 +26,30 @@ class Http2Connection(
     private val readLock=ReentrantLock()
     private val writeLock=ReentrantLock()
     private val streamLock=ReentrantLock()
+    private val hpackeLock=ReentrantLock()
+    private val hpackdLock=ReentrantLock()
 
     private val hpackEncoder=Encoder(4096)
     private val hpackDecoder=Decoder(4096)
 
     internal val streamData:MutableMap<Int,StreamData> =mutableMapOf()
-    internal var windowSize:Int=settings.initial_window_size?:65535
+    internal var windowSize:Int=settings.initial_window_size!!
 
     private var maxStreamID:Int=0
     private var goaway:Boolean=false
 
-    fun hpackEncode(headers: List<Pair<String, String>>)=hpackEncoder.encode(headers)
-    fun hpackDecode(block:ByteArray)=hpackDecoder.decode(block).map{it.toPair()}
+    fun hpackEncode(headers: List<Pair<String, String>>):ByteArray{
+        hpackeLock.lock()
+        val buff=hpackEncoder.encode(headers)
+        hpackeLock.unlock()
+        return buff
+    }
+    fun hpackDecode(block:ByteArray):List<Pair<String,String>>{
+        hpackdLock.lock()
+        val headers=hpackDecoder.decode(block).map{it.toPair()}
+        hpackdLock.unlock()
+        return headers
+    }
 
     val pre="PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
     init{
@@ -165,6 +177,7 @@ class Http2Connection(
                         )
 
                         settings=newSett
+                        sendSettingsAck()
                     }
                     Http2FrameType.Goaway->goaway=true
                     Http2FrameType.RstStream->streamData[frame.streamID]!!.closed=true
@@ -190,13 +203,41 @@ class Http2Connection(
     }
 
     fun sendData(streamID:Int,payload:ByteArray,last:Boolean){
-        // TODO: flow control
-        send_frame(true, streamID, 0, if(last) 1 else 0, payload, ByteArray(0))
+        val stream=streamData[streamID]!!
+        var remain=payload
+        var min=if(windowSize>stream.windowSize)
+            minOf(stream.windowSize, settings.max_frame_size!!)
+        else
+            minOf(windowSize, settings.max_frame_size!!)
+
+        while(min<remain.size){
+            var toSend=remain.copyOfRange(0, min)
+            remain=remain.copyOfRange(min,remain.size)
+
+            if(min>0)send_frame(true, streamID, 0, 0, toSend, ByteArray(0))
+            stream.windowSize-=toSend.size
+            handle(listOf(read_one()))
+
+            min=if(windowSize>stream.windowSize)
+                minOf(stream.windowSize, settings.max_frame_size!!)
+            else
+                minOf(windowSize, settings.max_frame_size!!)
+        }
+        send_frame(true, streamID, 0, if(last) 1 else 0, remain, ByteArray(0))
     }
     fun sendHeaders(streamID:Int,headers:List<Pair<String,String>>,endStream:Boolean=false){
-        // TODO: split up with continuation frames when too large
         val payload=hpackEncode(headers)
-        send_frame(true, streamID, 1, if(endStream) 5 else 4, payload, ByteArray(0))
+        if(payload.size>settings.max_frame_size!!){
+            send_frame(true, streamID, 1, 0, payload.copyOfRange(0, settings.max_frame_size!!), ByteArray(0))
+            var remain=payload.copyOfRange(settings.max_frame_size!!, payload.size)
+            while(remain.size>settings.max_frame_size!!){
+                send_frame(true, streamID, 9, 0, remain.copyOfRange(0, settings.max_frame_size!!), ByteArray(0))
+                remain=remain.copyOfRange(settings.max_frame_size!!, remain.size)
+            }
+            send_frame(true, streamID, 9, if(endStream) 5 else 4, remain, ByteArray(0))
+        } else{
+            send_frame(true, streamID, 1, if(endStream) 5 else 4, payload, ByteArray(0))
+        }
     }
     fun sendSettings(settings:Http2Settings){
         val payload=settings.toBuffer()
