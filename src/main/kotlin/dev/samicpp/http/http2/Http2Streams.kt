@@ -47,6 +47,9 @@ class Http2Stream(val streamID:Int,val conn:Http2Connection):HttpSocket{
     override var statusMessage: String=""
     override var compression: Compression=Compression.None
 
+    override val isClosed get()=closed
+    override val sentHeaders get()=sentHead
+
     override fun addHeader(name:String,value:String){
         val lname=name.lowercase()
         if(sentHead)return

@@ -35,6 +35,9 @@ class Http1Socket(private val conn:Socket):HttpSocket{
     
     override val client: HttpClient get()=_client
 
+    override val isClosed get()=closed
+    override val sentHeaders get()=head_closed
+
     // tx
     override var status: Int = 200 // unsafe to use UShort
     override var statusMessage: String = "OK"

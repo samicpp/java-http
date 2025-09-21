@@ -27,6 +27,9 @@ interface HttpSocket{
     var statusMessage: String;
     var compression: Compression;
 
+    val isClosed: Boolean;
+    val sentHeaders: Boolean;
+
     fun addHeader(name:String,value:String);
     fun setHeader(name:String,value:String);
     fun delHeader(name:String):List<String>;
