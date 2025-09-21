@@ -2,6 +2,7 @@ package dev.samicpp.http
 
 import dev.samicpp.http.Http2Client
 
+
 data class Http2Client(val head:List<Pair<String,String>>,override val body:ByteArray):HttpClient{
     override val headers: Map<String,List<String>>
     override val method: String
@@ -95,9 +96,16 @@ class Http2Stream(val streamID:Int,val conn:Http2Connection):HttpSocket{
     }
     override fun close(buffer:ByteArray){
         if(!closed){
-            if(!sentHead)sendHead()
-            conn.sendData(streamID, buffer, true)
-            closed=true
+            if(!sentHead&&compression==Compression.Gzip){
+                headers["content-encoding"]=mutableListOf("gzip")
+                sendHead()
+                conn.sendData(streamID, compressGzip(buffer), true)
+                closed=true
+            } else {
+                if(!sentHead)sendHead()
+                conn.sendData(streamID, buffer, true)
+                closed=true
+            }
         }
     }
     override fun close(message:String)=close(message.encodeToByteArray())
