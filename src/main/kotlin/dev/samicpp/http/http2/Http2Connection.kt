@@ -35,10 +35,12 @@ class Http2Connection(
     private val hpackDecoder=Decoder(4096)
 
     internal val streamData:MutableMap<Int,StreamData> =mutableMapOf()
-    internal var windowSize:Int=settings.initial_window_size!!
+    internal var windowSize:Int=settings.initial_window_size?:65535
 
     private var maxStreamID:Int=0
     private var goaway:Boolean=false
+
+    private val maxFrameSize:Int get()=settings.max_frame_size?:16384
 
     fun hpackEncode(headers: List<Pair<String, String>>):ByteArray{
         hpackeLock.lock()
@@ -165,7 +167,7 @@ class Http2Connection(
                         sendWindowUpdate(frame.streamID, frame.length)
                     }
                     Http2FrameType.Settings->{
-                        if((frame.flags and 1)!=0&&frame.streamID!=0)continue@check
+                        if((frame.flags and 1)!=0||frame.streamID!=0)continue@check
                         val sett=frame.settings
                         val newSett=Http2Settings(
                             header_table_size       = sett.header_table_size?:settings.header_table_size,
@@ -214,9 +216,9 @@ class Http2Connection(
         val stream=streamData[streamID]!!
         var remain=payload
         var min=if(windowSize>stream.windowSize)
-            minOf(stream.windowSize, settings.max_frame_size!!)
+            minOf(stream.windowSize, maxFrameSize)
         else
-            minOf(windowSize, settings.max_frame_size!!)
+            minOf(windowSize, maxFrameSize)
 
         while(min<remain.size){
             var toSend=remain.copyOfRange(0, min)
@@ -227,9 +229,9 @@ class Http2Connection(
             handle(listOf(read_one()))
 
             min=if(windowSize>stream.windowSize)
-                minOf(stream.windowSize, settings.max_frame_size!!)
+                minOf(stream.windowSize, maxFrameSize)
             else
-                minOf(windowSize, settings.max_frame_size!!)
+                minOf(windowSize, maxFrameSize)
         }
         send_frame(true, streamID, 0, if(last) 1 else 0, remain, ByteArray(0))
         sendLock.unlock()
@@ -237,12 +239,12 @@ class Http2Connection(
     fun sendHeaders(streamID:Int,headers:List<Pair<String,String>>,endStream:Boolean=false){
         sendLock.lock()
         val payload=hpackEncode(headers)
-        if(payload.size>settings.max_frame_size!!){
-            send_frame(true, streamID, 1, 0, payload.copyOfRange(0, settings.max_frame_size!!), ByteArray(0))
-            var remain=payload.copyOfRange(settings.max_frame_size!!, payload.size)
-            while(remain.size>settings.max_frame_size!!){
-                send_frame(true, streamID, 9, 0, remain.copyOfRange(0, settings.max_frame_size!!), ByteArray(0))
-                remain=remain.copyOfRange(settings.max_frame_size!!, remain.size)
+        if(payload.size>maxFrameSize){
+            send_frame(true, streamID, 1, 0, payload.copyOfRange(0, maxFrameSize), ByteArray(0))
+            var remain=payload.copyOfRange(maxFrameSize, payload.size)
+            while(remain.size>maxFrameSize){
+                send_frame(true, streamID, 9, 0, remain.copyOfRange(0, maxFrameSize), ByteArray(0))
+                remain=remain.copyOfRange(maxFrameSize, remain.size)
             }
             send_frame(true, streamID, 9, if(endStream) 5 else 4, remain, ByteArray(0))
         } else{
