@@ -164,9 +164,7 @@ class Http2Connection(
                     }
                     Http2FrameType.Settings->{
                         if((frame.flags and 1)!=0&&frame.streamID!=0)continue@check
-                        val data=streamData[frame.streamID]!!
                         val sett=frame.settings
-                        
                         val newSett=Http2Settings(
                             header_table_size       = sett.header_table_size?:settings.header_table_size,
                             enable_push             = sett.enable_push?:settings.enable_push,
@@ -175,6 +173,8 @@ class Http2Connection(
                             max_frame_size          = sett.max_frame_size?:settings.max_frame_size,
                             max_header_list_size    = sett.max_header_list_size?:settings.max_header_list_size,
                         )
+
+                        if(newSett.header_table_size!=null)hpackEncoder.updateDynamicTableSize(newSett.header_table_size)
 
                         settings=newSett
                         sendSettingsAck()

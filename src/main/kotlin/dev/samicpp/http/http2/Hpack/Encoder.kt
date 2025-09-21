@@ -106,7 +106,7 @@ class Encoder(val size:Int=4096){
         writeString(out,value)
     }
 
-    private fun updateDynamicTableSize(newSize:Int){
+    fun updateDynamicTableSize(newSize:Int){
         dynamic.maxSize=newSize
     }
 }

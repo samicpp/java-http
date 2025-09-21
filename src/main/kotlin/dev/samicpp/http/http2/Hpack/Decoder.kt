@@ -119,7 +119,7 @@ class Decoder(val size:Int=4096){
         return h.name
     }
 
-    private fun updateDynamicTableSize(newSize:Int){
+    fun updateDynamicTableSize(newSize:Int){
         dynamic.maxSize=newSize
     }
 }
