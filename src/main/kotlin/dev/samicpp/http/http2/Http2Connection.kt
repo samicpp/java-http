@@ -187,6 +187,10 @@ class Http2Connection(
                         if(frame.streamID==0)windowSize+=update
                         else streamData[frame.streamID]!!.windowSize+=update
                     }
+                    Http2FrameType.Ping->{
+                        if((frame.flags and 1)!=0)continue@check
+                        sendPing(frame.payload)
+                    }
 
                     else->{}
                 }
@@ -199,6 +203,7 @@ class Http2Connection(
     }
 
     fun getStream(streamID:Int):HttpSocket{
+        // TODO: actually make stream class
         return Http2Stream(streamID,this)
     }
 
@@ -255,7 +260,32 @@ class Http2Connection(
         )
         send_frame(true, streamID, 8, 0, payload, ByteArray(0))
     }
-    // TODO: add remaining frames
+    fun sendPing(payload:ByteArray){
+        send_frame(true, 0, 6, 0, payload, ByteArray(0))
+    }
+    fun sendPong(payload:ByteArray){
+        send_frame(true, 0, 6, 1, payload, ByteArray(0))
+    }
+    fun sendGoaway(error:Int,message:ByteArray){
+        val payload=ByteArrayOutputStream()
+        payload.writeBytes(byteArrayOf(
+            (error shr 24).toByte(),
+            (error shr 16).toByte(),
+            (error shr 8).toByte(),
+            error.toByte()
+        ))
+        payload.writeBytes(message)
+        send_frame(true, 0, 7, 0, payload.toByteArray(), ByteArray(0))
+    }
+    fun sendRstStream(streamID:Int,error:Int){
+        val payload=byteArrayOf(
+            (error shr 24).toByte(),
+            (error shr 16).toByte(),
+            (error shr 8).toByte(),
+            error.toByte()
+        )
+        send_frame(true, streamID, 3, 0, payload, ByteArray(0))
+    }
 
     // should ABSOLUTELY not be used under normal circumstances
     fun send_frame(lock:Boolean,streamID:Int,opcode:Int,flags:Int,payload:ByteArray,padding:ByteArray){
