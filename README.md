@@ -7,4 +7,4 @@ http framework in java and kotlin
 - [x] implement HTTP/2
 - [x] implement WebSocket
 - [x] implement HPACK
-
+- [ ] implement HTTP/3
