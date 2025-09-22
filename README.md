@@ -8,3 +8,4 @@ http framework in java and kotlin
 - [x] implement WebSocket
 - [x] implement HPACK
 - [ ] implement HTTP/3
+- [ ] implement QPACK
