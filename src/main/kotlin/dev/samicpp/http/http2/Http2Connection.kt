@@ -43,6 +43,7 @@ class Http2Connection(
     val closed:Boolean get()=goaway
 
     private val maxFrameSize:Int get()=settings.max_frame_size?:16384
+    val remoteAddress get()=conn.remoteAddress
 
     fun hpackEncode(headers: List<Pair<String, String>>):ByteArray{
         hpackeLock.lock()

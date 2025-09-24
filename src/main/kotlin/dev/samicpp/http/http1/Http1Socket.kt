@@ -9,6 +9,7 @@ import java.util.zip.GZIPOutputStream
 import java.util.zip.GZIPInputStream
 import java.security.MessageDigest
 import java.util.Base64
+import java.net.SocketAddress
 
 // same namespace imports unnecessary 
 import dev.samicpp.http.Socket
@@ -31,7 +32,7 @@ class Http1Socket(private val conn:Socket):HttpSocket{
     private val headers=mutableMapOf<String,MutableList<String>>( "Connection" to mutableListOf("close") )
     private var closed=false
     private var head_closed=false
-    private val _client=Http1Client()
+    private val _client=Http1Client(conn.remoteAddress)
     
     override val client: HttpClient get()=_client
 
@@ -261,7 +262,7 @@ class Http1Socket(private val conn:Socket):HttpSocket{
     }
 }
 
-class Http1Client():HttpClient{
+class Http1Client(override val address:SocketAddress):HttpClient{
     internal var _headers=mutableMapOf<String,MutableList<String>>()
     internal var _method=""
     internal var _version=""

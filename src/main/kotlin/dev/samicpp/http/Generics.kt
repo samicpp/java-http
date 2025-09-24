@@ -12,6 +12,7 @@ interface Socket{
 }
 
 interface HttpClient{
+    val address: SocketAddress;
     val headers: Map<String,List<String>>;
     val method: String;
     val version: String;

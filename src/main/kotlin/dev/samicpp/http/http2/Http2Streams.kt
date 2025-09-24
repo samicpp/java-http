@@ -1,9 +1,10 @@
 package dev.samicpp.http
 
 import dev.samicpp.http.Http2Client
+import java.net.SocketAddress
 
 
-data class Http2Client(val head:List<Pair<String,String>>,override val body:ByteArray):HttpClient{
+data class Http2Client(val head:List<Pair<String,String>>,override val body:ByteArray,override val address:SocketAddress):HttpClient{
     override val headers: Map<String,List<String>>
     override val method: String
     override val version: String="HTTP/2"
@@ -37,7 +38,7 @@ data class Http2Client(val head:List<Pair<String,String>>,override val body:Byte
 // TODO: make sure headers dont exceed SETTINGS_MAX_HEADER_LIST_SIZE
 
 class Http2Stream(val streamID:Int,val conn:Http2Connection):HttpSocket{
-    override var client: HttpClient=Http2Client(listOf(),ByteArray(0))
+    override var client: HttpClient=Http2Client(listOf(),ByteArray(0),conn.remoteAddress)
 
     private var sentHead=false
     private var closed=false
@@ -125,7 +126,7 @@ class Http2Stream(val streamID:Int,val conn:Http2Connection):HttpSocket{
     override fun write(text:String)=write(text.encodeToByteArray())
 
     override fun readClient():HttpClient{
-        val nclient=Http2Client(conn.streamData[streamID]!!.headers,conn.streamData[streamID]!!.body.toByteArray())
+        val nclient=Http2Client(conn.streamData[streamID]!!.headers,conn.streamData[streamID]!!.body.toByteArray(),conn.remoteAddress)
         client=nclient
         return client
     }
