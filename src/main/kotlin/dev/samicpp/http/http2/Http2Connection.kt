@@ -159,7 +159,7 @@ class Http2Connection(
                     Http2FrameType.Headers->{
                         if(goaway)continue@check
                         if(frame.streamID in streamData)continue@check
-                        val data=StreamData()
+                        val data=StreamData(windowSize=settings.initial_window_size?:65535)
                         data.headBuff.writeBytes(frame.payload)
 
                         streamData[frame.streamID]=data
@@ -198,6 +198,7 @@ class Http2Connection(
                         )
 
                         if(newSett.header_table_size!=null)hpacke.updateDynamicTableSize(newSett.header_table_size)
+                        if(newSett.initial_window_size!=null&&streamData.isEmpty())windowSize=newSett.initial_window_size
 
                         settings=newSett
                     }
@@ -230,7 +231,7 @@ class Http2Connection(
     }
 
     fun sendData(streamID:Int,payload:ByteArray,last:Boolean){
-        // TODO: que any frames not of type WINDOW_UPDATE
+        // println("sending data")
         sendLock.lock()
         if(payload.isEmpty()){
             if(last)send_frame(true,streamID,0,1,ByteArray(0),ByteArray(0))
@@ -239,28 +240,34 @@ class Http2Connection(
         try{
             val stream=streamData[streamID]!!
             var remain=payload
-            var min=if(windowSize>stream.windowSize)
-                minOf(stream.windowSize, maxFrameSize)
-            else
-                minOf(windowSize, maxFrameSize)
+            var min=minOf(stream.windowSize, windowSize, maxFrameSize)
+
+            // println("window size [${minOf(stream.windowSize, windowSize)}] max frame size $maxFrameSize")
 
             while(min<remain.size){
+                // println("sending data in chunk[$min] remaining[${remain.size}]")
                 var toSend=remain.copyOfRange(0, min)
                 remain=remain.copyOfRange(min,remain.size)
 
                 if(min>0)send_frame(true, streamID, 0, 0, toSend, ByteArray(0))
                 stream.windowSize-=toSend.size
                 windowSize-=toSend.size
-                read_one().let{
-                    if(it.type==Http2FrameType.WindowUpdate)handle(listOf(it))
-                    else que.addLast(it)
+                // println("sent chunk [${toSend.size}] new window size [${minOf(stream.windowSize, windowSize)}]")
+                if(minOf(stream.windowSize, windowSize)>0){
+                    // println("can still send")
+                }else{
+                    // println("now waiting on window update frame...")
+                    read_one().let{
+                        // println("received ${it.stringType} frame whilst waiting for window update")
+                        if(it.type==Http2FrameType.WindowUpdate)handle(listOf(it))
+                        else que.addLast(it)
+                    }
                 }
 
-                min=if(windowSize>stream.windowSize)
-                    minOf(stream.windowSize, maxFrameSize)
-                else
-                    minOf(windowSize, maxFrameSize)
+                min=minOf(stream.windowSize, maxFrameSize, windowSize)
             }
+
+            // println("sent all data parts")
             send_frame(true, streamID, 0, if(last) 1 else 0, remain, ByteArray(0))
         } finally {
             sendLock.unlock()
