@@ -21,6 +21,8 @@ sealed class Http2Error(msg:String?=null):HttpError(msg){
     var body:ByteArrayOutputStream=ByteArrayOutputStream(),
 )
 
+// TODO: add ws support
+
 class Http2Connection(
     private val conn:Socket,
     var settings:Http2Settings=Http2Settings(4096,1,null,65535,16384,null),
@@ -38,6 +40,7 @@ class Http2Connection(
     /*internal*/ val streamData:MutableMap<Int,StreamData> =mutableMapOf()
     internal var windowSize:Int=settings.initial_window_size?:65535
 
+    private val que:ArrayDeque<Http2Frame> =ArrayDeque()
     private var maxStreamID:Int=0
     private var goaway:Boolean=false
     val closed:Boolean get()=goaway
@@ -79,7 +82,7 @@ class Http2Connection(
         if(lock)readLock.unlock()
         return tot.toByteArray()
     }
-    fun read_one(lock:Boolean=true):Http2Frame{
+    private fun read_one(lock:Boolean=true):Http2Frame{
         val buff=ByteArrayOutputStream()
         if(lock)readLock.lock()
         
@@ -110,6 +113,10 @@ class Http2Connection(
         if(lock)readLock.unlock()
         return parseHttp2Frame(buff.toByteArray()).first // nothing should remain
     }
+    fun readOne():Http2Frame{
+        if(que.isNotEmpty())return que.removeFirst()
+        else return read_one()
+    }
     fun available():Boolean{
         return conn.available()>0
     }
@@ -122,6 +129,7 @@ class Http2Connection(
         val frames=mutableListOf<Http2Frame>()
         var remain:ByteArray=read_all()
         
+        for(i in 0 until que.size)frames.add(que.removeFirst())
         if(remain.size<9)return frames
         // print("read buffer [ ")
         // remain.forEach { print("${it.toInt() and 0xff} ") }
@@ -222,7 +230,12 @@ class Http2Connection(
     }
 
     fun sendData(streamID:Int,payload:ByteArray,last:Boolean){
+        // TODO: que any frames not of type WINDOW_UPDATE
         sendLock.lock()
+        if(payload.isEmpty()){
+            if(last)send_frame(true,streamID,0,1,ByteArray(0),ByteArray(0))
+            return
+        }
         try{
             val stream=streamData[streamID]!!
             var remain=payload
@@ -237,7 +250,11 @@ class Http2Connection(
 
                 if(min>0)send_frame(true, streamID, 0, 0, toSend, ByteArray(0))
                 stream.windowSize-=toSend.size
-                handle(listOf(read_one()))
+                windowSize-=toSend.size
+                read_one().let{
+                    if(it.type==Http2FrameType.WindowUpdate)handle(listOf(it))
+                    else que.addLast(it)
+                }
 
                 min=if(windowSize>stream.windowSize)
                     minOf(stream.windowSize, maxFrameSize)
