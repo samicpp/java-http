@@ -103,12 +103,17 @@ class Http2Stream(val streamID:Int,val conn:Http2Connection):HttpSocket{
     override fun close(buffer:ByteArray){
         if(!closed){
             if(!sentHead&&compression==Compression.Gzip){
+                val compressed=compressGzip(buffer)
                 headers["content-encoding"]=mutableListOf("gzip")
+                headers["content-length"]=mutableListOf(compressed.size.toString())
                 sendHead()
-                conn.sendData(streamID, compressGzip(buffer), true)
+                conn.sendData(streamID, compressed, true)
                 closed=true
             } else {
-                if(!sentHead)sendHead()
+                if(!sentHead){
+                    headers["content-length"]=mutableListOf(buffer.size.toString())
+                    sendHead()
+                }
                 conn.sendData(streamID, buffer, true)
                 closed=true
             }
