@@ -90,7 +90,7 @@ class Http1Socket(private val conn:Socket):HttpSocket{
 
     override fun close(){
         if(!closed&&!head_closed){
-            setHeader("Content-Length", "0")
+            headers["Content-Length"]=mutableListOf("0")
             sendHead()
             closed=true
         } else if (!closed){
@@ -258,6 +258,7 @@ class Http1Socket(private val conn:Socket):HttpSocket{
     }
 
     override fun disconnect(){
+        conn.flush()
         conn.close()
     }
 }

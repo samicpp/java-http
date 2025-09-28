@@ -95,7 +95,10 @@ class Http2Stream(val streamID:Int,val conn:Http2Connection):HttpSocket{
     
     override fun close(){
         if(!closed){
-            if(!sentHead)sendHead()
+            if(!sentHead){
+                headers["content-length"]=mutableListOf("0")
+                sendHead()
+            }
             conn.sendData(streamID, ByteArray(0), true)
             closed=true
         }
@@ -122,6 +125,7 @@ class Http2Stream(val streamID:Int,val conn:Http2Connection):HttpSocket{
     override fun close(message:String)=close(message.encodeToByteArray())
 
     override fun write(buff:ByteArray){
+        if(buff.isEmpty())return
         if(!closed){
             if(!sentHead)sendHead()
             conn.sendData(streamID, buff, false)
