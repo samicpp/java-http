@@ -8,6 +8,7 @@ interface Socket{
     fun close();
     fun flush();
     fun available():Int;
+    fun isClosed():Boolean;
     val remoteAddress: SocketAddress;
 }
 

@@ -4,12 +4,16 @@ import dev.samicpp.http.Socket
 import dev.samicpp.http.WebSocketFrame
 
 import java.io.ByteArrayOutputStream
-
+import java.util.concurrent.locks.ReentrantLock
 
 const val MAGIC:String="258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 
 class WebSocket(private val conn:Socket){
+    private val readLock=ReentrantLock()
+    private val writeLock=ReentrantLock()
+
     private fun read_all():ByteArray{
+        readLock.lock()
         var tot=ByteArrayOutputStream()
         var buff=ByteArray(4096)
         while(true){
@@ -17,6 +21,7 @@ class WebSocket(private val conn:Socket){
             if(read>0)tot.write(buff,0,read)
             if(read<buff.size)break
         }
+        readLock.unlock()
         return tot.toByteArray()
     }
     fun incoming():List<WebSocketFrame>{
@@ -33,6 +38,7 @@ class WebSocket(private val conn:Socket){
     fun available():Boolean{
         return conn.available()>0
     }
+    fun isClosed()=conn.isClosed()
     private fun createFrame(fin:Boolean,opcode:Int,payload:ByteArray):ByteArray{
         val buff=mutableListOf(
             ((if(fin)0x80 else 0x0)or(opcode and 0xf)).toByte()
@@ -58,19 +64,24 @@ class WebSocket(private val conn:Socket){
 
         return buff.toByteArray()
     }
+    private fun sendFrame(fin:Boolean,opcode:Int,payload:ByteArray){
+        writeLock.lock()
+        conn.write(createFrame(fin, opcode, payload))
+        writeLock.unlock()
+    }
 
 
-    fun sendText(data:ByteArray){conn.write(createFrame(true, 1, data))}
-    fun sendText(data:String){conn.write(createFrame(true, 1, data.encodeToByteArray()))}
+    fun sendText(data:ByteArray){sendFrame(true, 1, data)}
+    fun sendText(data:String){sendFrame(true, 1, data.encodeToByteArray())}
     
-    fun sendBinary(data:ByteArray){conn.write(createFrame(true, 2, data))}
-    fun sendBinary(data:String){conn.write(createFrame(true, 2, data.encodeToByteArray()))}
+    fun sendBinary(data:ByteArray){sendFrame(true, 2, data)}
+    fun sendBinary(data:String){sendFrame(true, 2, data.encodeToByteArray())}
     
-    fun sendPing(data:ByteArray){conn.write(createFrame(true, 9, data))}
-    fun sendPing(data:String){conn.write(createFrame(true, 9, data.encodeToByteArray()))}
+    fun sendPing(data:ByteArray){sendFrame(true, 9, data)}
+    fun sendPing(data:String){sendFrame(true, 9, data.encodeToByteArray())}
     
-    fun sendPong(data:ByteArray){conn.write(createFrame(true, 10, data))}
-    fun sendPong(data:String){conn.write(createFrame(true, 10, data.encodeToByteArray()))}
+    fun sendPong(data:ByteArray){sendFrame(true, 10, data)}
+    fun sendPong(data:String){sendFrame(true, 10, data.encodeToByteArray())}
     
     fun sendClose(status:Int,reason:ByteArray){
         val buff=ByteArrayOutputStream().apply {
@@ -79,7 +90,7 @@ class WebSocket(private val conn:Socket){
             write(reason)
         }
 
-        conn.write(createFrame(true, 8, buff.toByteArray()))
+        sendFrame(true, 8, buff.toByteArray())
     }
     fun sendClose(status:Int,reason:String){sendClose(status, reason.encodeToByteArray())}
 

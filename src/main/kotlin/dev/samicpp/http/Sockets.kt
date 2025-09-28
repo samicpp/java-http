@@ -29,6 +29,9 @@ class TcpSocket(val tcp: Socket): IfaceSocket{ // also compatible with SSLSocket
     override fun available():Int{
         return input.available()
     }
+    override fun isClosed():Boolean{
+        return tcp.isClosed()
+    }
     override val remoteAddress=tcp.remoteSocketAddress
 }
 
@@ -52,6 +55,9 @@ class TlsSocket(val tls: SSLSocket): IfaceSocket{
     }
     override fun available():Int{
         return input.available()
+    }
+    override fun isClosed():Boolean{
+        return tls.isClosed()
     }
     override val remoteAddress=tls.remoteSocketAddress
 }
