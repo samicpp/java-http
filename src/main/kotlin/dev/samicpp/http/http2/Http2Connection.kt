@@ -120,8 +120,8 @@ class Http2Connection(
     fun available():Boolean{
         return conn.available()>0
     }
-    fun close(reason:Int=0,message:String=""){
-        try{ sendGoaway(reason, message.encodeToByteArray()) } catch(err:Throwable){}
+    fun close(reason:Int=0,message:String="",streamID:Int=0){
+        try{ sendGoaway(streamID, reason, message.encodeToByteArray()) } catch(err:Throwable){}
         conn.close()
     }
 
@@ -314,9 +314,14 @@ class Http2Connection(
     fun sendPong(payload:ByteArray){
         send_frame(true, 0, 6, 1, payload.copyOfRange(0, 8), ByteArray(0))
     }
-    fun sendGoaway(error:Int,message:ByteArray){
+    fun sendGoaway(streamID:Int,error:Int,message:ByteArray){
         val payload=ByteArrayOutputStream()
         payload.writeBytes(byteArrayOf(
+            (streamID shr 24).toByte(),
+            (streamID shr 16).toByte(),
+            (streamID shr 8).toByte(),
+            streamID.toByte(),
+
             (error shr 24).toByte(),
             (error shr 16).toByte(),
             (error shr 8).toByte(),
