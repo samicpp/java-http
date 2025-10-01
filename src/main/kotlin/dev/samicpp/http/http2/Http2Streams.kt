@@ -162,4 +162,5 @@ class Http2Stream(val streamID:Int,val conn:Http2Connection):HttpSocket{
         conn.sendRstStream(streamID, 7)
         closed=true
     }
+    override fun isHttps()=conn.isHttps()
 }

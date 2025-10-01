@@ -36,6 +36,7 @@ class TcpSocket(val tcp: Socket): IfaceSocket{ // also compatible with SSLSocket
         return tcp.isClosed()
     }
     override val remoteAddress=tcp.remoteSocketAddress
+    override fun isHttps()=false
 }
 
 class TlsSocket(val tls: SSLSocket): IfaceSocket{
@@ -66,4 +67,5 @@ class TlsSocket(val tls: SSLSocket): IfaceSocket{
         return tls.isClosed()
     }
     override val remoteAddress=tls.remoteSocketAddress
+    override fun isHttps()=true
 }

@@ -395,4 +395,5 @@ class Http2Connection(
             if(lock)writeLock.unlock()
         }
     }
+    fun isHttps()=conn.isHttps()
 }

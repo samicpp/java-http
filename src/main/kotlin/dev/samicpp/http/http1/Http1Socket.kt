@@ -348,6 +348,7 @@ class Http1Socket(private val conn:Socket):HttpSocket{
         conn.flush()
         conn.close()
     }
+    override fun isHttps()=conn.isHttps()
 }
 
 class Http1Client(override val address:SocketAddress):HttpClient{

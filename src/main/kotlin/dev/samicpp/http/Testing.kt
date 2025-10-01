@@ -66,4 +66,5 @@ class FakeHttpSocket: HttpSocket{
     override fun websocket():dev.samicpp.http.WebSocket=throw Exception("cannot start websocket in fake connection")
 
     override fun disconnect(){}
+    override fun isHttps()=true
 }

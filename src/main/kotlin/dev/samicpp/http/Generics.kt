@@ -11,6 +11,7 @@ interface Socket{
     fun available():Int;
     fun isClosed():Boolean;
     val remoteAddress: SocketAddress;
+    fun isHttps(): Boolean;
 }
 
 interface HttpClient{
@@ -54,6 +55,8 @@ interface HttpSocket{
     fun websocket():WebSocket;
 
     fun disconnect();
+
+    fun isHttps(): Boolean;
 }
 
 enum class Compression{
