@@ -4,6 +4,7 @@ import java.net.SocketAddress
 
 interface Socket{
     fun read(buffer: ByteArray): Int;
+    fun read(buffer: ByteArray, offset: Int, length: Int): Int;
     fun write(buffer: ByteArray);
     fun close();
     fun flush();

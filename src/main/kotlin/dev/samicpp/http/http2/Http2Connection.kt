@@ -22,7 +22,7 @@ sealed class Http2Error(msg:String?=null):HttpError(msg){
 )
 
 // TODO: add ws support
-
+// TODO: allow client to fragment frames -> dont read once then parse
 class Http2Connection(
     private val conn:Socket,
     var settings:Http2Settings=Http2Settings(4096,1,null,65535,16384,null),
@@ -82,14 +82,29 @@ class Http2Connection(
         if(lock)readLock.unlock()
         return tot.toByteArray()
     }
+    private fun read_certain(length:Int,lock:Boolean=true):ByteArray{
+        val buff=ByteArray(length)
+        if(length<1)return buff
+        if(lock)readLock.lock()
+        var read=0
+        try{
+            while(read<length){
+                val len=conn.read(buff, read, length-read)
+                if(len<0)throw HttpError.ConnectionClosed("read -1")
+                read+=len
+            }
+        } finally {
+            if(lock)readLock.unlock()
+        }
+        return buff
+    }
     private fun read_one(lock:Boolean=true):Http2Frame{
         val buff=ByteArrayOutputStream()
-        if(lock)readLock.lock()
+        // if(lock)readLock.lock()
         
         var offset=9
 
-        val head=ByteArray(9)
-        conn.read(head)
+        val head=read_certain(9,lock)
         buff.writeBytes(head)
 
         val length=((head[0].toInt() and 0xff) shl 16) or ((head[1].toInt() and 0xff) shl 8) or (head[2].toInt() and 0xff)
@@ -103,14 +118,14 @@ class Http2Connection(
         }
         else 0 
 
-        val payload=ByteArray(length)
-        val padding=ByteArray(padLength)
-        conn.read(payload)
-        conn.read(padding)
+        val payload=read_certain(length,lock)
+        val padding=read_certain(padLength,lock)
+        // conn.read(payload)
+        // conn.read(padding)
         buff.writeBytes(payload)
         buff.writeBytes(padding)
 
-        if(lock)readLock.unlock()
+        // if(lock)readLock.unlock()
         return parseHttp2Frame(buff.toByteArray()).first // nothing should remain
     }
     fun readOne():Http2Frame{

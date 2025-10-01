@@ -28,6 +28,7 @@ fun decompressGzip(buff:ByteArray):ByteArray {
 }
 
 
+// TODO: dont read and parse once, read block until \r\n\r\n then parse
 class Http1Socket(private val conn:Socket):HttpSocket{
     private val headers=mutableMapOf<String,MutableList<String>>( "Connection" to mutableListOf("close") )
     private var closed=false
@@ -180,6 +181,48 @@ class Http1Socket(private val conn:Socket):HttpSocket{
         }
         return tot.toByteArray()
     }
+    private fun read_certain(length:Int):ByteArray{
+        val buff=ByteArray(length)
+        if(length<1)return buff
+        var read=0
+        
+        while(read<length){
+            val len=conn.read(buff, read, length-read)
+            if(len<0)throw HttpError.ConnectionClosed("read -1")
+            read+=len
+        }
+        
+        return buff
+    }
+    private fun read_until(match:ByteArray):ByteArray{
+        val buff=ByteArrayOutputStream()
+        val window=ArrayDeque<Byte>()
+        val one=ByteArray(1)
+
+        while(true){
+            val len=conn.read(one)
+            if(len<0)throw HttpError.ConnectionClosed("read -1")
+            val b=one[0]
+            buff.write(b.toInt())
+            window.addLast(b)
+
+            if(window.size>match.size)window.removeFirst()
+
+            if(window.size==match.size){
+                var matched=true
+                for(i in match.indices){
+                    if(match[i]!=window.elementAt(i)){
+                        matched=false
+                        break
+                    }
+                }
+                if(matched)break
+            }
+        }
+
+        return buff.toByteArray()
+    }
+
     override fun readClient():HttpClient{
         val buff=read_all()
         val (bhead,body)=splitHead(buff)

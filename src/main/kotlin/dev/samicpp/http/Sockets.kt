@@ -15,6 +15,9 @@ class TcpSocket(val tcp: Socket): IfaceSocket{ // also compatible with SSLSocket
     override fun read(buffer: ByteArray):Int{
         return input.read(buffer)
     }
+    override fun read(buffer: ByteArray, offset: Int, length: Int):Int{
+        return input.read(buffer,offset,length)
+    }
     override fun write(buffer: ByteArray){
         return output.write(buffer)
     }
@@ -41,6 +44,9 @@ class TlsSocket(val tls: SSLSocket): IfaceSocket{
 
     override fun read(buffer: ByteArray):Int{
         return input.read(buffer)
+    }
+    override fun read(buffer: ByteArray, offset: Int, length: Int):Int{
+        return input.read(buffer,offset,length)
     }
     override fun write(buffer: ByteArray){
         return output.write(buffer)
