@@ -15,6 +15,8 @@ class FakeHttpClient: HttpClient{
     override val path: String = "/"
     override val host: String = "about:blank"
     override val body: ByteArray = ByteArray(0)
+    override val isReady: Boolean = true
+    override val isComplete: Boolean = true
 }
 
 class FakeHttpSocket: HttpSocket{

@@ -21,6 +21,9 @@ interface HttpClient{
     val path: String;
     val host: String;
     val body: ByteArray;
+    
+    val isReady: Boolean;  //  indicates whether headers can be used
+    val isComplete: Boolean;
 }
 
 interface HttpSocket{

@@ -226,14 +226,16 @@ class Http1Socket(private val conn:Socket):HttpSocket{
 
     override fun readClient():HttpClient{
         if(!read_head){
-            val head=read_until("\r\n\r\n".encodeToByteArray()).decodeToString().replace("\r\n","\n").split("\n")
+            val head=read_until("\r\n\r\n".encodeToByteArray()).decodeToString()/*.replace("\r\n","\n")*/.split("\r\n")
             val (method,path,version)=head[0].split(" ")
             _client._method=method
             _client._path=path
             _client._version=version
 
             for(i in 1 until head.size){
-                val (headerb,value)=head[i].split(":",limit=2)
+                val col=head[i].split(":",limit=2)
+                if(col.size<2)continue
+                val (headerb,value)=col
                 val header=headerb.lowercase()
                 if(header in _client._headers){
                     _client._headers[header]!!.add(value.trim())
@@ -242,11 +244,28 @@ class Http1Socket(private val conn:Socket):HttpSocket{
                 }
             }
             read_head=true
+            _client._ready=true
         }; if(!read_body) {
-            // TODO: support chunked transfer encoding
-            val cl=_client._headers["content-length"]?.get(0)?.toInt()?:0
-            _client._body=read_certain(cl)
-            read_body=true
+            if(_client._headers["content-length"]?.get(0)!=null){
+
+                val cl=_client._headers["content-length"]!!.get(0).toInt()
+                _client._body.writeBytes(read_certain(cl))
+                read_body=true
+                _client._bodyComplete=true
+
+            } else if(_client._headers["transfer-encoding"]?.get(0)=="chunked"){
+
+                val chunk=read_until("\r\n".encodeToByteArray()).decodeToString().trim().toInt(16)
+                if(chunk==0){
+                    _client._bodyComplete=true
+                    read_body=true
+                }
+                else _client._body.write(read_certain(chunk+2),0,chunk)
+                
+            } else {
+                _client._bodyComplete=true
+                read_body=true
+            }
         }
 
         // val buff=read_all()
@@ -336,14 +355,18 @@ class Http1Client(override val address:SocketAddress):HttpClient{
     internal var _method=""
     internal var _version=""
     internal var _path=""
-    internal var _body=ByteArray(0)
+    internal var _body=ByteArrayOutputStream()
+    internal var _ready=false
+    internal var _bodyComplete=false
 
     override val headers: Map<String,List<String>> get()=_headers
     override val method: String get()=_method
     override val version: String get()=_version
     override val path: String get()=_path
     override val host: String get()=_headers["host"]?.get(0)?:"about:blank"
-    override val body: ByteArray get()=_body
+    override val body: ByteArray get()=_body.toByteArray()
+    override val isReady get()=_ready
+    override val isComplete get()=_bodyComplete
 }
 
 // fun ByteArray.indexOfSequence(sequence:ByteArray):Int{
