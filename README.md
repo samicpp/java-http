@@ -9,3 +9,4 @@ http framework in java and kotlin
 - [x] implement HPACK
 - [ ] implement HTTP/3
 - [ ] implement QPACK
+- [ ] support both java NIO and IO

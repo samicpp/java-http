@@ -28,12 +28,13 @@ fun decompressGzip(buff:ByteArray):ByteArray {
 }
 
 
-// TODO: dont read and parse once, read block until \r\n\r\n then parse
 class Http1Socket(private val conn:Socket):HttpSocket{
     private val headers=mutableMapOf<String,MutableList<String>>( "Connection" to mutableListOf("close") )
     private var closed=false
     private var head_closed=false
     private val _client=Http1Client(conn.remoteAddress)
+    private var read_head=false
+    private var read_body=false
     
     override val client: HttpClient get()=_client
 
@@ -224,32 +225,56 @@ class Http1Socket(private val conn:Socket):HttpSocket{
     }
 
     override fun readClient():HttpClient{
-        val buff=read_all()
-        val (bhead,body)=splitHead(buff)
-        val head=bhead.decodeToString()
-        
-        // println("buff[${buff.size}] = \"${buff.decodeToString()}\"")
-        // print("buff = [ ")
-        // for(i in buff)print("$i ")
-        // println("]")
-        // println("bhead[${bhead.size}]\nbody[${body.size}]")
+        if(!read_head){
+            val head=read_until("\r\n\r\n".encodeToByteArray()).decodeToString().replace("\r\n","\n").split("\n")
+            val (method,path,version)=head[0].split(" ")
+            _client._method=method
+            _client._path=path
+            _client._version=version
 
-        val lines=head.split("\r\n")
-        val mpv=lines[0].split(" ")
-        
-        _client._method=mpv[0]
-        _client._path=mpv[1]
-        _client._version=mpv[2]
-
-        for (i in 1..<lines.size){
-            val (header,value)=lines[i].split(":",limit=2)
-            if(header in _client._headers){ // header in client._headers
-                _client._headers[header.lowercase()]?.add(value.trim())
-            } else {
-                _client._headers[header.lowercase()]=mutableListOf(value.trim())
+            for(i in 1 until head.size){
+                val (headerb,value)=head[i].split(":",limit=2)
+                val header=headerb.lowercase()
+                if(header in _client._headers){
+                    _client._headers[header]!!.add(value.trim())
+                } else {
+                    _client._headers[header]=mutableListOf(value.trim())
+                }
             }
+            read_head=true
+        }; if(!read_body) {
+            // TODO: support chunked transfer encoding
+            val cl=_client._headers["content-length"]?.get(0)?.toInt()?:0
+            _client._body=read_certain(cl)
+            read_body=true
         }
-        _client._body=body
+
+        // val buff=read_all()
+        // val (bhead,body)=splitHead(buff)
+        // val head=bhead.decodeToString()
+        
+        // // println("buff[${buff.size}] = \"${buff.decodeToString()}\"")
+        // // print("buff = [ ")
+        // // for(i in buff)print("$i ")
+        // // println("]")
+        // // println("bhead[${bhead.size}]\nbody[${body.size}]")
+
+        // val lines=head.split("\r\n")
+        // val mpv=lines[0].split(" ")
+        
+        // _client._method=mpv[0]
+        // _client._path=mpv[1]
+        // _client._version=mpv[2]
+
+        // for (i in 1..<lines.size){
+        //     val (header,value)=lines[i].split(":",limit=2)
+        //     if(header in _client._headers){ // header in client._headers
+        //         _client._headers[header.lowercase()]?.add(value.trim())
+        //     } else {
+        //         _client._headers[header.lowercase()]=mutableListOf(value.trim())
+        //     }
+        // }
+        // _client._body=body
 
         return _client
     }
