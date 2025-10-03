@@ -10,10 +10,12 @@ sealed class Http2Error(msg:String?=null):HttpError(msg){
     class InvalidPreface(msg:String?=null):Http2Error(msg);
     class Unsupported(msg:String?=null):Http2Error(msg);
     class MalformedFrame(msg:String?=null):Http2Error(msg);
+    class RstStream(msg:String?=null):Http2Error(msg);
 }
 
 /*internal*/ data class StreamData(
     var end: Boolean=false,
+    // var reset: Boolean=false,
     var closed: Boolean=false,
     var windowSize: Int=65535,
     var headers:List<Pair<String, String>> =listOf(),
@@ -274,10 +276,13 @@ class Http2Connection(
                     // println("now waiting on window update frame...")
                     read_one().let{
                         // println("received ${it.stringType} frame whilst waiting for window update")
-                        if(it.type==Http2FrameType.WindowUpdate)handle(listOf(it))
-                        else que.addLast(it)
+                        if(it.type==Http2FrameType.Headers)que.addLast(it)
+                        else handle(listOf(it))
                     }
                 }
+
+                if(goaway)throw HttpError.ConnectionClosed("goaway received before last frame sent")
+                if(stream.closed)throw Http2Error.RstStream("stream closed before last frame sent")
 
                 min=minOf(stream.windowSize, maxFrameSize, windowSize)
             }
