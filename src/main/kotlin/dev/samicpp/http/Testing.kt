@@ -56,6 +56,7 @@ class FakeHttpSocket: HttpSocket{
 
     override fun write(buff:ByteArray)=sendHead()
     override fun write(text:String)=sendHead()
+    override fun flush(){}
 
     override fun readClient():HttpClient{
         canRead=false

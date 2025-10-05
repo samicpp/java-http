@@ -48,6 +48,7 @@ interface HttpSocket{
 
     fun write(buff:ByteArray);
     fun write(text:String);
+    fun flush();
 
     fun readClient():HttpClient;
     fun available():Boolean;

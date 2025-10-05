@@ -150,6 +150,9 @@ class Http1Socket(private val conn:Socket):HttpSocket{
     override fun write(text:String){
         if(!closed)write(text.encodeToByteArray())
     }
+    override fun flush(){
+        conn.flush()
+    }
 
     // rx
     private fun splitHead(buff:ByteArray):Pair<ByteArray,ByteArray>{

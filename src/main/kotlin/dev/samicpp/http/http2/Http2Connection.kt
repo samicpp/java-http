@@ -104,7 +104,7 @@ class Http2Connection(
         val buff=ByteArrayOutputStream()
         // if(lock)readLock.lock()
         
-        var offset=9
+        // var offset=9
 
         val head=read_certain(9,lock)
         buff.writeBytes(head)
@@ -112,8 +112,8 @@ class Http2Connection(
         val length=((head[0].toInt() and 0xff) shl 16) or ((head[1].toInt() and 0xff) shl 8) or (head[2].toInt() and 0xff)
         val padLength=
         if((head[4].toInt() and 0x8)!=0) {
-            offset+=1
-            val one=ByteArray(0)
+            // offset+=1
+            val one=ByteArray(1)
             conn.read(one)
             buff.writeBytes(one)
             one[0].toInt() and 0xff

@@ -136,10 +136,11 @@ class Http2Stream(val streamID:Int,val conn:Http2Connection):HttpSocket{
         if(!closed){
             if(!sentHead)sendHead()
             conn.sendData(streamID, buff, false)
-            closed=true
+            // closed=true
         }
     }
     override fun write(text:String)=write(text.encodeToByteArray())
+    override fun flush()=conn.flush()
 
     override fun readClient():HttpClient{
         val nclient=Http2Client(
