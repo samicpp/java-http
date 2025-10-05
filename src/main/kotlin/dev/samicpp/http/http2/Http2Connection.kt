@@ -229,7 +229,7 @@ class Http2Connection(
                     }
                     Http2FrameType.Ping->{
                         if((frame.flags and 1)!=0)continue@check
-                        sendPing(frame.payload)
+                        sendPong(frame.payload)
                     }
 
                     else->{}
