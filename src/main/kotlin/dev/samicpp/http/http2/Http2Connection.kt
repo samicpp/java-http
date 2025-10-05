@@ -294,7 +294,7 @@ class Http2Connection(
         }
     }
     fun sendHeaders(streamID:Int,headers:List<Pair<String,String>>,endStream:Boolean=false){
-        sendLock.lock()
+        // sendLock.lock()
         try{
             val payload=hpackEncode(headers)
             if(payload.size>maxFrameSize){
@@ -309,7 +309,7 @@ class Http2Connection(
                 send_frame(true, streamID, 1, if(endStream) 5 else 4, payload, ByteArray(0))
             }
         } finally {
-            sendLock.unlock()
+            // sendLock.unlock()
         }
     }
     fun sendSettings(settings:Http2Settings){
