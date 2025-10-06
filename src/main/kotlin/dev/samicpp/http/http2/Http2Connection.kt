@@ -252,6 +252,7 @@ class Http2Connection(
         sendLock.lock()
         if(payload.isEmpty()){
             if(last)send_frame(true,streamID,0,1,ByteArray(0),ByteArray(0))
+            sendLock.unlock()
             return
         }
         try{
