@@ -238,12 +238,12 @@ class Http2Connection(
     fun sendData(streamID:Int,payload:ByteArray,last:Boolean){
         // println("sending data")
         sendLock.lock()
-        if(payload.isEmpty()){
-            if(last)send_frame(true,streamID,0,1,ByteArray(0),ByteArray(0))
-            sendLock.unlock()
-            return
-        }
+
         try{
+            if(payload.isEmpty()){
+                if(last)send_frame(true,streamID,0,1,ByteArray(0),ByteArray(0))
+                return
+            }
             val stream=streamData[streamID]!!
             var remain=payload
             var min=minOf(stream.windowSize, windowSize, maxFrameSize)
@@ -266,6 +266,7 @@ class Http2Connection(
                     read_one().let{
                         // println("received ${it.stringType} frame whilst waiting for window update")
                         if(it.type==Http2FrameType.Headers)que.addLast(it)
+                        else if(it.streamID!=streamID&&it.streamID!=0)que.addLast(it)
                         else handle(listOf(it))
                     }
                 }
@@ -353,7 +354,7 @@ class Http2Connection(
     // TODO: add sendPushPromise
 
     // should ABSOLUTELY not be used under normal circumstances
-    fun send_frame(lock:Boolean,streamID:Int,opcode:Int,flags:Int,payload:ByteArray,padding:ByteArray){
+    internal fun send_frame(lock:Boolean,streamID:Int,opcode:Int,flags:Int,payload:ByteArray,padding:ByteArray){
         val buff=ByteArrayOutputStream()
         if(lock)writeLock.lock()
         
