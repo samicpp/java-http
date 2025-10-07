@@ -105,30 +105,18 @@ class Http2Connection(
         // if(lock)readLock.lock()
         
         // var offset=9
-
+        
         val head=read_certain(9,lock)
         buff.writeBytes(head)
 
         val length=((head[0].toInt() and 0xff) shl 16) or ((head[1].toInt() and 0xff) shl 8) or (head[2].toInt() and 0xff)
-        val padLength=
-        if((head[4].toInt() and 0x8)!=0) {
-            // offset+=1
-            val one=ByteArray(1)
-            conn.read(one)
-            buff.writeBytes(one)
-            one[0].toInt() and 0xff
-        }
-        else 0 
 
         val payload=read_certain(length,lock)
-        val padding=read_certain(padLength,lock)
         // conn.read(payload)
-        // conn.read(padding)
         buff.writeBytes(payload)
-        buff.writeBytes(padding)
 
         // if(lock)readLock.unlock()
-        return parseHttp2Frame(buff.toByteArray()).first // nothing should remain
+        return Http2Frame.parse(buff.toByteArray()).first // nothing should remain
     }
     fun readOne():Http2Frame{
         if(que.isNotEmpty())return que.removeFirst()
@@ -154,11 +142,11 @@ class Http2Connection(
 
         do{
             try{
-                val pout=parseHttp2Frame(remain)
+                val pout=Http2Frame.parse(remain)
                 frames.add(pout.first)
                 remain=pout.second
             } catch(err:Throwable){
-                // throw err
+                throw err
             }
         } while(remain.size!=0)
         return frames

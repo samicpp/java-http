@@ -327,7 +327,7 @@ class Http1Socket(private val conn:Socket):HttpSocket{
         val h2=
         if(settb64!=null){
             val setts=Base64.getDecoder().decode(settb64)
-            val sett=parseHttp2Settings(setts)
+            val sett=Http2Settings.parse(setts)
             conn.write("HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: h2c\r\n\r\n".encodeToByteArray())
             Http2Connection(conn,sett)
         } else {
