@@ -50,12 +50,12 @@ class Http2Connection(
     private val maxFrameSize:Int get()=settings.max_frame_size?:16384
     val remoteAddress get()=conn.remoteAddress
 
-    fun hpackEncode(headers: List<Pair<String, String>>):ByteArray{
-        hpackeLock.lock()
-        val buff=hpacke.encode(headers)
-        hpackeLock.unlock()
-        return buff
-    }
+    // fun hpackEncode(headers: List<Pair<String, String>>):ByteArray{
+    //     hpackeLock.lock()
+    //     val buff=hpacke.encode(headers)
+    //     hpackeLock.unlock()
+    //     return buff
+    // }
     fun hpackDecode(block:ByteArray):List<Pair<String,String>>{
         hpackdLock.lock()
         val headers=hpackd.decode(block).map{it.toPair()}
@@ -285,8 +285,9 @@ class Http2Connection(
     }
     fun sendHeaders(streamID:Int,headers:List<Pair<String,String>>,endStream:Boolean=false){
         // sendLock.lock()
+        hpackeLock.lock()
         try{
-            val payload=hpackEncode(headers)
+            val payload=hpacke.encode(headers)
             if(payload.size>maxFrameSize){
                 send_frame(true, streamID, 1, 0, payload.copyOfRange(0, maxFrameSize), ByteArray(0))
                 var remain=payload.copyOfRange(maxFrameSize, payload.size)
@@ -299,6 +300,7 @@ class Http2Connection(
                 send_frame(true, streamID, 1, if(endStream) 5 else 4, payload, ByteArray(0))
             }
         } finally {
+            hpackeLock.unlock()
             // sendLock.unlock()
         }
     }
